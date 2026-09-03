@@ -20,7 +20,12 @@ export function sanitizeSupabaseUrl(raw: string): string {
   url = url.replace(/\/rest\/?$/i, '');
 
   // Final strip trailing slashes
-  return url.replace(/\/+$/, '');
+  url = url.replace(/\/+$/, '');
+
+  if (!url.startsWith('http://') && !url.startsWith('https://')) {
+    url = `http://${url}`;
+  }
+  return url;
 }
 
 export function sanitizeSupabaseKey(raw: string): string {
@@ -40,18 +45,22 @@ const rawKey =
   import.meta.env.SUPABASE_ANON_KEY || 
   '';
 
-export const supabaseUrl = sanitizeSupabaseUrl(rawUrl);
-export const supabaseAnonKey = sanitizeSupabaseKey(rawKey);
+export let supabaseUrl = sanitizeSupabaseUrl(rawUrl);
+export let supabaseAnonKey = sanitizeSupabaseKey(rawKey);
 
-export const isSupabaseConfigured = Boolean(
-  supabaseUrl && 
-  supabaseAnonKey && 
-  !supabaseUrl.includes('your-project') &&
-  !supabaseUrl.includes('tu-proyecto') &&
-  supabaseUrl.startsWith('https://')
-);
+export function isValidSupabaseConfig(url: string, key: string): boolean {
+  return Boolean(
+    url &&
+    key &&
+    !url.includes('your-project') &&
+    !url.includes('tu-proyecto') &&
+    (url.startsWith('https://') || url.startsWith('http://'))
+  );
+}
 
-export const supabase = isSupabaseConfigured
+export let isSupabaseConfigured = isValidSupabaseConfig(supabaseUrl, supabaseAnonKey);
+
+let currentClient: ReturnType<typeof createClient> | null = isSupabaseConfigured
   ? createClient(supabaseUrl, supabaseAnonKey, {
       auth: {
         persistSession: true,
@@ -64,6 +73,49 @@ export const supabase = isSupabaseConfigured
       },
     })
   : null;
+
+// Synchronize with backend /api/supabase/config if frontend was built without build-time env vars
+export async function syncRuntimeSupabase(): Promise<boolean> {
+  if (currentClient && isSupabaseConfigured) return true;
+  try {
+    const res = await fetch('/api/supabase/config');
+    if (!res.ok) return false;
+    const data = await res.json();
+    if (data.url && data.anonKey && isValidSupabaseConfig(data.url, data.anonKey)) {
+      supabaseUrl = sanitizeSupabaseUrl(data.url);
+      supabaseAnonKey = sanitizeSupabaseKey(data.anonKey);
+      isSupabaseConfigured = true;
+      currentClient = createClient(supabaseUrl, supabaseAnonKey, {
+        auth: {
+          persistSession: true,
+          autoRefreshToken: true,
+        },
+        realtime: {
+          params: {
+            eventsPerSecond: 10,
+          },
+        },
+      });
+      return true;
+    }
+  } catch {
+    // Ignore error
+  }
+  return false;
+}
+
+// Auto-trigger sync on load in browser
+if (typeof window !== 'undefined' && !currentClient) {
+  syncRuntimeSupabase().catch(() => {});
+}
+
+export const supabase: any = new Proxy({} as any, {
+  get(_target, prop) {
+    if (!currentClient) return undefined;
+    const value = (currentClient as any)[prop];
+    return typeof value === 'function' ? value.bind(currentClient) : value;
+  },
+});
 
 export interface SupabaseDiagnostics {
   configured: boolean;
@@ -79,12 +131,28 @@ export interface SupabaseDiagnostics {
 }
 
 export async function testSupabaseConnection(): Promise<SupabaseDiagnostics> {
-  if (!isSupabaseConfigured || !supabase) {
+  // Sync with runtime configuration if client not yet initialized
+  if (!isSupabaseConfigured || !currentClient) {
+    await syncRuntimeSupabase();
+  }
+
+  // Also query backend status to provide comprehensive error messaging
+  let backendStatus: any = null;
+  try {
+    const sRes = await fetch('/api/supabase/status');
+    if (sRes.ok) {
+      backendStatus = await sRes.json();
+    }
+  } catch {
+    // Ignore backend fetch error
+  }
+
+  if (!isSupabaseConfigured || !currentClient) {
     return {
       configured: false,
-      url: supabaseUrl || 'No configurada',
+      url: supabaseUrl || backendStatus?.url || 'No configurada',
       maskedKey: supabaseAnonKey ? `${supabaseAnonKey.slice(0, 8)}...` : 'No configurada',
-      error: 'Las variables VITE_SUPABASE_URL o VITE_SUPABASE_ANON_KEY aún no tienen valores válidos.',
+      error: backendStatus?.error || 'Las variables NEXT_PUBLIC_SUPABASE_URL o NEXT_PUBLIC_SUPABASE_ANON_KEY aún no tienen valores válidos.',
     };
   }
 

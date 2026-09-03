@@ -29,7 +29,11 @@ function sanitizeSupabaseUrl(raw: string): string {
   url = url.replace(/\/+$/, '');
   url = url.replace(/\/rest\/v1\/?$/i, '');
   url = url.replace(/\/rest\/?$/i, '');
-  return url.replace(/\/+$/, '');
+  url = url.replace(/\/+$/, '');
+  if (!url.startsWith('http://') && !url.startsWith('https://')) {
+    url = `http://${url}`;
+  }
+  return url;
 }
 
 function sanitizeSupabaseKey(raw: string): string {
@@ -61,7 +65,7 @@ export const serverSupabase = (
   serverSupabaseKey &&
   !serverSupabaseUrl.includes('your-project') &&
   !serverSupabaseUrl.includes('tu-proyecto') &&
-  serverSupabaseUrl.startsWith('https://')
+  (serverSupabaseUrl.startsWith('https://') || serverSupabaseUrl.startsWith('http://'))
 )
   ? createClient(serverSupabaseUrl, serverSupabaseKey)
   : null;
@@ -438,6 +442,78 @@ app.get('/api/supabase/fix-permissions-sql', (_req: Request, res: Response) => {
   } catch (err: any) {
     res.status(500).send(`-- Error reading fix permissions: ${err.message}`);
   }
+});
+
+// Runtime configuration endpoint for frontend client auto-connection
+app.get('/api/supabase/config', (_req: Request, res: Response) => {
+  const publicAnonKey = (
+    process.env.VITE_SUPABASE_ANON_KEY ||
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ||
+    process.env.SUPABASE_ANON_KEY ||
+    serverSupabaseKey ||
+    ''
+  );
+
+  res.json({
+    configured: Boolean(serverSupabase),
+    url: serverSupabaseUrl || '',
+    anonKey: sanitizeSupabaseKey(publicAnonKey),
+    hasServiceRoleKey: Boolean(process.env.SUPABASE_SERVICE_ROLE_KEY),
+  });
+});
+
+// Complete backend database health & diagnostics endpoint
+app.get('/api/supabase/status', async (_req: Request, res: Response) => {
+  const result: any = {
+    configured: Boolean(serverSupabase),
+    url: serverSupabaseUrl || null,
+    hasKey: Boolean(serverSupabaseKey),
+    hasServiceRoleKey: Boolean(process.env.SUPABASE_SERVICE_ROLE_KEY),
+    isSelfHosted: Boolean(serverSupabaseUrl && (serverSupabaseUrl.includes('sslip.io') || serverSupabaseUrl.includes('localhost') || serverSupabaseUrl.startsWith('http://'))),
+    tables: {
+      broadcast_spaces: false,
+      doctors: false,
+      tv_announcements: false,
+      audit_logs: false,
+    },
+    tablesOk: false,
+    error: null,
+  };
+
+  if (!serverSupabase) {
+    result.error = 'Supabase no está configurado en el backend. Verifica NEXT_PUBLIC_SUPABASE_URL y NEXT_PUBLIC_SUPABASE_ANON_KEY en Coolify.';
+    res.json(result);
+    return;
+  }
+
+  try {
+    const [t1, t2, t3, t4] = await Promise.all([
+      serverSupabase.from('broadcast_spaces').select('id').limit(1),
+      serverSupabase.from('doctors').select('id').limit(1),
+      serverSupabase.from('tv_announcements').select('id').limit(1),
+      serverSupabase.from('audit_logs').select('id').limit(1),
+    ]);
+
+    result.tables.broadcast_spaces = !t1.error;
+    result.tables.doctors = !t2.error;
+    result.tables.tv_announcements = !t3.error;
+    result.tables.audit_logs = !t4.error;
+
+    result.tablesOk = !t1.error && !t2.error && !t3.error && !t4.error;
+
+    if (!result.tablesOk) {
+      const missing: string[] = [];
+      if (t1.error) missing.push(`broadcast_spaces (${t1.error.message})`);
+      if (t2.error) missing.push(`doctors (${t2.error.message})`);
+      if (t3.error) missing.push(`tv_announcements (${t3.error.message})`);
+      if (t4.error) missing.push(`audit_logs (${t4.error.message})`);
+      result.error = `Faltan tablas o permisos en Supabase: ${missing.join(', ')}`;
+    }
+  } catch (err: any) {
+    result.error = `Error al contactar Supabase: ${err.message}`;
+  }
+
+  res.json(result);
 });
 
 // 1. SSE Real-Time Stream for TVs and Admin Dashboards
@@ -1527,6 +1603,13 @@ async function startServer() {
 
   app.listen(PORT, '0.0.0.0', () => {
     console.log(`[Hospital Bienvenida Recién Nacidos] Server listening on http://0.0.0.0:${PORT}`);
+    if (serverSupabase) {
+      console.log(`[Supabase] Conectado a: ${serverSupabaseUrl}`);
+      console.log(`[Supabase Service Role] ${process.env.SUPABASE_SERVICE_ROLE_KEY ? 'Presente' : 'No configurado (usando ANON key)'}`);
+    } else {
+      console.log(`[Supabase] No configurado o credenciales incompletas.`);
+      console.log(`[Supabase Debug] URL recibida: "${rawServerSupabaseUrl}", Key presente: ${Boolean(rawServerSupabaseKey)}`);
+    }
   });
 }
 

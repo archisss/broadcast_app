@@ -1,6 +1,6 @@
 import { createContext, useContext, useState, useEffect, useCallback, ReactNode, useRef } from 'react';
 import { TvAnnouncement, ConnectionState, AuditLog, CreateAnnouncementPayload, BroadcastSpace } from '../types';
-import { isSupabaseConfigured, supabase } from '../lib/supabase';
+import { isSupabaseConfigured, supabase, syncRuntimeSupabase } from '../lib/supabase';
 import { useAuth } from './AuthContext';
 
 interface RealtimeContextType {
@@ -47,6 +47,14 @@ export function RealtimeProvider({ children }: { children: ReactNode }) {
   const [channel, setChannel] = useState<string>('waiting-room');
   const [currentSpacePath, setCurrentSpacePath] = useState<string>('/tv');
   const [lastUpdated, setLastUpdated] = useState<string | null>(null);
+  const [supabaseReady, setSupabaseReady] = useState(isSupabaseConfigured);
+
+  // Sync Supabase configuration dynamically on mount if not provided at build-time
+  useEffect(() => {
+    syncRuntimeSupabase().then((ok) => {
+      if (ok) setSupabaseReady(true);
+    });
+  }, []);
 
   // Synchronize space path when user has an assigned space
   useEffect(() => {
@@ -92,7 +100,7 @@ export function RealtimeProvider({ children }: { children: ReactNode }) {
       }
 
       // Check Supabase if configured for persistent state
-      if (isSupabaseConfigured && supabase) {
+      if ((supabaseReady || isSupabaseConfigured) && supabase) {
         try {
           const { data: supaActiveList } = await supabase
             .from('tv_announcements')
@@ -254,7 +262,7 @@ export function RealtimeProvider({ children }: { children: ReactNode }) {
 
     // Supabase Realtime subscription
     let supabaseChannel: any = null;
-    if (isSupabaseConfigured && supabase) {
+    if ((supabaseReady || isSupabaseConfigured) && supabase) {
       supabaseChannel = supabase
         .channel('tv_announcements_channel')
         .on(

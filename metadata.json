@@ -1,0 +1,6 @@
+{
+  "name": "Broadcast Hospitalario",
+  "description": "Sistema integral de transmisión y difusión hospitalaria para salas, habitaciones y pantallas de espera con soporte multicanal, gestión de médicos y generador de comunicados.",
+  "requestFramePermissions": ["camera"],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

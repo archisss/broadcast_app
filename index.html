@@ -1,0 +1,63 @@
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="UTF-8" />
+    <script>
+      // Runtime environment guard: ensure window.fetch is writable and has both getter and setter
+      // Prevents "Uncaught TypeError: Cannot set property fetch of #<Window> which has only a getter" in iframes/sandboxes
+      (function() {
+        try {
+          var nativeFetch = typeof window.fetch === 'function' ? window.fetch.bind(window) : window.fetch;
+          var activeFetch = nativeFetch;
+          Object.defineProperty(window, 'fetch', {
+            get: function() {
+              return activeFetch;
+            },
+            set: function(newFetch) {
+              activeFetch = newFetch;
+            },
+            configurable: true,
+            enumerable: true
+          });
+        } catch (e) {
+          try {
+            var proto = Object.getPrototypeOf(window);
+            if (proto) {
+              var pDesc = Object.getOwnPropertyDescriptor(proto, 'fetch');
+              if (pDesc && pDesc.configurable) {
+                var pFetch = typeof window.fetch === 'function' ? window.fetch.bind(window) : window.fetch;
+                Object.defineProperty(proto, 'fetch', {
+                  get: function() {
+                    return pFetch;
+                  },
+                  set: function(fn) {
+                    pFetch = fn;
+                  },
+                  configurable: true,
+                  enumerable: true
+                });
+              }
+            }
+          } catch (err) {
+            // Ignore if sealed
+          }
+        }
+      })();
+    </script>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Broadcast Hospitalario</title>
+    <meta name="description" content="Sistema integral de transmisión y difusión hospitalaria para salas, habitaciones y pantallas de espera con soporte multicanal, gestión de médicos y generador de comunicados." />
+    <meta property="og:title" content="Broadcast Hospitalario" />
+    <meta property="og:description" content="Sistema integral de transmisión y difusión hospitalaria para salas, habitaciones y pantallas de espera con soporte multicanal, gestión de médicos y generador de comunicados." />
+    <meta property="og:type" content="website" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  </head>
+  <body class="font-sans antialiased selection:bg-sky-100 selection:text-sky-900 bg-slate-50 text-slate-900">
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>
+

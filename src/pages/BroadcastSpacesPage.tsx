@@ -130,7 +130,8 @@ export const BroadcastSpacesPage: React.FC<BroadcastSpacesPageProps> = ({ onOpen
   };
 
   const copyUrl = (webPath: string, id: string) => {
-    const fullUrl = `${window.location.origin}/#space=${encodeURIComponent(webPath)}`;
+    const cleanPath = webPath.startsWith('/') ? webPath : `/${webPath}`;
+    const fullUrl = `${window.location.origin}${cleanPath}`;
     navigator.clipboard.writeText(fullUrl);
     setCopiedId(id);
     setTimeout(() => setCopiedId(null), 2500);
@@ -304,11 +305,14 @@ export const BroadcastSpacesPage: React.FC<BroadcastSpacesPageProps> = ({ onOpen
 
                           <button
                             type="button"
-                            onClick={() =>
-                              onOpenSpaceTv
-                                ? onOpenSpaceTv(space.direccion_web)
-                                : window.open(`${window.location.origin}/#space=${encodeURIComponent(space.direccion_web)}`, '_blank')
-                            }
+                            onClick={() => {
+                              const cleanPath = space.direccion_web.startsWith('/') ? space.direccion_web : `/${space.direccion_web}`;
+                              if (onOpenSpaceTv) {
+                                onOpenSpaceTv(cleanPath);
+                              } else {
+                                window.open(`${window.location.origin}${cleanPath}`, '_blank');
+                              }
+                            }}
                             className="inline-flex items-center gap-1 px-3 py-1.5 bg-sky-50 hover:bg-sky-100 text-sky-700 font-semibold rounded-lg transition-colors cursor-pointer"
                             title="Ver transmisión en TV"
                           >
@@ -393,7 +397,7 @@ export const BroadcastSpacesPage: React.FC<BroadcastSpacesPageProps> = ({ onOpen
                   />
                 </div>
                 <p className="text-[11px] text-slate-400 mt-1">
-                  Esta ruta permitirá abrir la transmisión directamente desde el navegador (ej: <span className="font-mono">{window.location.origin}/#space=/cuarto22</span>).
+                  Esta ruta permitirá abrir la transmisión directamente desde el navegador (ej: <span className="font-mono">{window.location.origin}/cuarto22</span>).
                 </p>
               </div>
 

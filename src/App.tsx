@@ -15,97 +15,121 @@ import { Tv, SplitSquareVertical, ExternalLink } from 'lucide-react';
 
 type ViewMode = 'admin' | 'tv' | 'split';
 
+interface AppRouteState {
+  viewMode: ViewMode;
+  spacePath: string;
+  adminTab: AdminTab;
+}
+
+function resolveRouteFromUrl(): AppRouteState {
+  let path = window.location.pathname;
+  const hash = window.location.hash;
+
+  // 1. Transparent migration: convert any legacy hash URLs to clean paths
+  if (hash) {
+    if (hash.startsWith('#space=')) {
+      const decoded = decodeURIComponent(hash.slice(7));
+      const cleanPath = decoded.startsWith('/') ? decoded : `/${decoded}`;
+      window.history.replaceState(null, '', cleanPath);
+      path = cleanPath;
+    } else if (hash === '#tv') {
+      window.history.replaceState(null, '', '/tv');
+      path = '/tv';
+    } else if (hash.startsWith('#admin/')) {
+      const sub = hash.slice(7);
+      window.history.replaceState(null, '', `/admin/${sub}`);
+      path = `/admin/${sub}`;
+    } else if (hash === '#admin') {
+      window.history.replaceState(null, '', '/admin');
+      path = '/admin';
+    } else if (hash.startsWith('#') && hash.length > 1 && !hash.startsWith('#admin')) {
+      const sub = hash.slice(1);
+      const cleanPath = sub.startsWith('/') ? sub : `/${sub}`;
+      window.history.replaceState(null, '', cleanPath);
+      path = cleanPath;
+    }
+  }
+
+  // Normalize trailing slashes
+  if (path.length > 1 && path.endsWith('/')) {
+    path = path.slice(0, -1);
+  }
+
+  // Admin routes
+  if (path === '/admin/new') {
+    return { viewMode: 'admin', spacePath: '/tv', adminTab: 'new' };
+  }
+  if (path === '/admin/history') {
+    return { viewMode: 'admin', spacePath: '/tv', adminTab: 'history' };
+  }
+  if (path === '/admin/audit') {
+    return { viewMode: 'admin', spacePath: '/tv', adminTab: 'audit' };
+  }
+  if (path === '/admin/spaces') {
+    return { viewMode: 'admin', spacePath: '/tv', adminTab: 'spaces' };
+  }
+  if (path === '/admin/doctors') {
+    return { viewMode: 'admin', spacePath: '/tv', adminTab: 'doctors' };
+  }
+  if (path === '/admin' || path === '/') {
+    return { viewMode: 'admin', spacePath: '/tv', adminTab: 'dashboard' };
+  }
+
+  // TV / Broadcast display routes: /tv or custom space like /cuarto_44, /master_suite
+  if (path === '/tv') {
+    return { viewMode: 'tv', spacePath: '/tv', adminTab: 'dashboard' };
+  }
+
+  if (path.length > 1 && !path.startsWith('/admin') && !path.startsWith('/api') && !path.includes('.')) {
+    return { viewMode: 'tv', spacePath: path, adminTab: 'dashboard' };
+  }
+
+  return { viewMode: 'admin', spacePath: '/tv', adminTab: 'dashboard' };
+}
+
 function MainRouter() {
   const { user } = useAuth();
   const { activeAnnouncement, activeList, connectionState, currentSpacePath, setCurrentSpacePath } = useRealtime();
 
-  // Detect initial route based on URL path or hash
-  const [viewMode, setViewMode] = useState<ViewMode>(() => {
-    const path = window.location.pathname;
-    const hash = window.location.hash;
-    if (
-      path === '/tv' ||
-      hash === '#tv' ||
-      hash.startsWith('#space=') ||
-      (path.length > 1 && !path.startsWith('/admin') && !path.startsWith('/api') && !path.includes('.'))
-    ) {
-      return 'tv';
-    }
-    return 'admin';
-  });
+  const initialRoute = resolveRouteFromUrl();
+  const [viewMode, setViewMode] = useState<ViewMode>(initialRoute.viewMode);
+  const [activeSpacePath, setActiveSpacePath] = useState<string>(initialRoute.spacePath);
+  const [adminTab, setAdminTab] = useState<AdminTab>(initialRoute.adminTab);
 
-  const [activeSpacePath, setActiveSpacePath] = useState<string>(() => {
-    const path = window.location.pathname;
-    const hash = window.location.hash;
-    if (hash.startsWith('#space=')) {
-      return decodeURIComponent(hash.slice(7));
-    }
-    if (path.length > 1 && !path.startsWith('/admin') && !path.startsWith('/api') && !path.includes('.')) {
-      return path;
-    }
-    return '/tv';
-  });
-
-  const [adminTab, setAdminTab] = useState<AdminTab>(() => {
-    const hash = window.location.hash;
-    if (hash === '#admin/new') return 'new';
-    if (hash === '#admin/history') return 'history';
-    if (hash === '#admin/audit') return 'audit';
-    if (hash === '#admin/spaces') return 'spaces';
-    if (hash === '#admin/doctors') return 'doctors';
-    return 'dashboard';
-  });
-
-  // Sync URL hash with state for browser history and deep linking
+  // Sync state when user uses browser back / forward buttons
   useEffect(() => {
     const handlePopState = () => {
-      const path = window.location.pathname;
-      const hash = window.location.hash;
-
-      if (
-        path === '/tv' ||
-        hash === '#tv' ||
-        hash.startsWith('#space=') ||
-        (path.length > 1 && !path.startsWith('/admin') && !path.startsWith('/api') && !path.includes('.'))
-      ) {
-        if (hash.startsWith('#space=')) {
-          setActiveSpacePath(decodeURIComponent(hash.slice(7)));
-        } else if (path.length > 1 && !path.startsWith('/admin') && !path.startsWith('/api')) {
-          setActiveSpacePath(path);
-        }
-        setViewMode('tv');
-      } else {
-        setViewMode('admin');
-        if (hash === '#admin/new') setAdminTab('new');
-        else if (hash === '#admin/history') setAdminTab('history');
-        else if (hash === '#admin/audit') setAdminTab('audit');
-        else if (hash === '#admin/spaces') setAdminTab('spaces');
-        else if (hash === '#admin/doctors') setAdminTab('doctors');
-        else setAdminTab('dashboard');
-      }
+      const route = resolveRouteFromUrl();
+      setViewMode(route.viewMode);
+      setActiveSpacePath(route.spacePath);
+      setCurrentSpacePath(route.spacePath);
+      setAdminTab(route.adminTab);
     };
 
     window.addEventListener('popstate', handlePopState);
     return () => window.removeEventListener('popstate', handlePopState);
-  }, []);
+  }, [setCurrentSpacePath]);
 
   const navigateToTab = (tab: AdminTab) => {
     setAdminTab(tab);
     setViewMode('admin');
-    window.history.pushState(null, '', tab === 'dashboard' ? '#admin' : `#admin/${tab}`);
+    const cleanUrl = tab === 'dashboard' ? '/admin' : `/admin/${tab}`;
+    window.history.pushState(null, '', cleanUrl);
   };
 
   const navigateToTv = (targetSpace?: string) => {
     const sp = targetSpace || currentSpacePath || '/tv';
-    setActiveSpacePath(sp);
-    setCurrentSpacePath(sp);
+    const cleanSp = sp.startsWith('/') ? sp : `/${sp}`;
+    setActiveSpacePath(cleanSp);
+    setCurrentSpacePath(cleanSp);
     setViewMode('tv');
-    window.history.pushState(null, '', sp === '/tv' ? '#tv' : `#space=${encodeURIComponent(sp)}`);
+    window.history.pushState(null, '', cleanSp);
   };
 
   const openTvInNewTab = (targetSpace?: string) => {
     const sp = targetSpace || currentSpacePath || '/tv';
-    const tvUrl = sp === '/tv' ? `${window.location.origin}/#tv` : `${window.location.origin}/#space=${encodeURIComponent(sp)}`;
+    const cleanSp = sp.startsWith('/') ? sp : `/${sp}`;
+    const tvUrl = `${window.location.origin}${cleanSp}`;
     window.open(tvUrl, '_blank', 'noopener,noreferrer');
   };
 
@@ -119,7 +143,7 @@ function MainRouter() {
           <button
             onClick={() => {
               setViewMode('admin');
-              window.history.pushState(null, '', '#admin');
+              window.history.pushState(null, '', '/admin');
             }}
             className="text-sky-400 hover:text-white font-semibold underline cursor-pointer"
           >
@@ -136,7 +160,10 @@ function MainRouter() {
 
         <TVPage
           targetSpacePath={activeSpacePath}
-          onBackToAdmin={() => setViewMode('admin')}
+          onBackToAdmin={() => {
+            setViewMode('admin');
+            window.history.pushState(null, '', '/admin');
+          }}
         />
       </div>
     );
@@ -146,7 +173,10 @@ function MainRouter() {
   if (!user) {
     return (
       <LoginPage
-        onSuccess={() => setAdminTab('dashboard')}
+        onSuccess={() => {
+          setAdminTab('dashboard');
+          window.history.pushState(null, '', '/admin');
+        }}
         onOpenTv={() => navigateToTv('/tv')}
       />
     );
@@ -205,16 +235,16 @@ function MainRouter() {
               >
                 {adminTab === 'dashboard' && (
                   <AdminDashboardPage
-                    onNewBirth={() => setAdminTab('new')}
+                    onNewBirth={() => navigateToTab('new')}
                     onOpenTv={() => navigateToTv(currentSpacePath)}
-                    onViewHistory={() => setAdminTab('history')}
-                    onNavigateToSpaces={() => setAdminTab('spaces')}
-                    onNavigateToDoctors={() => setAdminTab('doctors')}
+                    onViewHistory={() => navigateToTab('history')}
+                    onNavigateToSpaces={() => navigateToTab('spaces')}
+                    onNavigateToDoctors={() => navigateToTab('doctors')}
                   />
                 )}
                 {adminTab === 'new' && (
                   <NewBirthPage
-                    onBack={() => setAdminTab('dashboard')}
+                    onBack={() => navigateToTab('dashboard')}
                     onViewTv={() => navigateToTv(currentSpacePath)}
                   />
                 )}
@@ -308,16 +338,16 @@ function MainRouter() {
       >
         {adminTab === 'dashboard' && (
           <AdminDashboardPage
-            onNewBirth={() => setAdminTab('new')}
+            onNewBirth={() => navigateToTab('new')}
             onOpenTv={() => navigateToTv(currentSpacePath)}
-            onViewHistory={() => setAdminTab('history')}
-            onNavigateToSpaces={() => setAdminTab('spaces')}
-            onNavigateToDoctors={() => setAdminTab('doctors')}
+            onViewHistory={() => navigateToTab('history')}
+            onNavigateToSpaces={() => navigateToTab('spaces')}
+            onNavigateToDoctors={() => navigateToTab('doctors')}
           />
         )}
         {adminTab === 'new' && (
           <NewBirthPage
-            onBack={() => setAdminTab('dashboard')}
+            onBack={() => navigateToTab('dashboard')}
             onViewTv={() => navigateToTv(currentSpacePath)}
           />
         )}

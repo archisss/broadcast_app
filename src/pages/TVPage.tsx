@@ -54,6 +54,12 @@ export const TVPage: React.FC<TVPageProps> = ({ onBackToAdmin, targetSpacePath }
   useEffect(() => {
     setCurrentSpacePath(spacePath);
     refreshData(spacePath);
+
+    // Clean hash from browser address bar if present
+    if (window.location.hash) {
+      const cleanPath = spacePath.startsWith('/') ? spacePath : `/${spacePath}`;
+      window.history.replaceState(null, '', cleanPath);
+    }
   }, [spacePath, setCurrentSpacePath, refreshData]);
 
   // Compute active items specifically for this space

@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { HospitalProvider } from './context/HospitalContext';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { RealtimeProvider, useRealtime } from './context/RealtimeContext';
 import { AdminLayout, AdminTab } from './components/AdminLayout';
@@ -9,6 +10,7 @@ import { LoginPage } from './pages/LoginPage';
 import { TVPage } from './pages/TVPage';
 import { BroadcastSpacesPage } from './pages/BroadcastSpacesPage';
 import { DoctorsManagementPage } from './pages/DoctorsManagementPage';
+import { HospitalDetailsPage } from './pages/HospitalDetailsPage';
 import { StaffPortalPage } from './pages/StaffPortalPage';
 import { TVDisplay } from './components/TVDisplay';
 import { Tv, SplitSquareVertical, ExternalLink } from 'lucide-react';
@@ -59,11 +61,11 @@ function resolveRouteFromUrl(): AppRouteState {
   if (path === '/admin/new') {
     return { viewMode: 'admin', spacePath: '/tv', adminTab: 'new' };
   }
-  if (path === '/admin/history') {
+  if (path === '/admin/history' || path === '/admin/audit') {
     return { viewMode: 'admin', spacePath: '/tv', adminTab: 'history' };
   }
-  if (path === '/admin/audit') {
-    return { viewMode: 'admin', spacePath: '/tv', adminTab: 'audit' };
+  if (path === '/admin/hospital') {
+    return { viewMode: 'admin', spacePath: '/tv', adminTab: 'hospital' };
   }
   if (path === '/admin/spaces') {
     return { viewMode: 'admin', spacePath: '/tv', adminTab: 'spaces' };
@@ -249,7 +251,7 @@ function MainRouter() {
                   />
                 )}
                 {adminTab === 'history' && <HistoryPage />}
-                {adminTab === 'audit' && <HistoryPage />}
+                {adminTab === 'hospital' && <HospitalDetailsPage />}
                 {adminTab === 'spaces' && (
                   <BroadcastSpacesPage onOpenSpaceTv={(sp) => navigateToTv(sp)} />
                 )}
@@ -352,7 +354,7 @@ function MainRouter() {
           />
         )}
         {adminTab === 'history' && <HistoryPage />}
-        {adminTab === 'audit' && <HistoryPage />}
+        {adminTab === 'hospital' && <HospitalDetailsPage />}
         {adminTab === 'spaces' && (
           <BroadcastSpacesPage onOpenSpaceTv={(sp) => navigateToTv(sp)} />
         )}
@@ -364,10 +366,12 @@ function MainRouter() {
 
 export default function App() {
   return (
-    <AuthProvider>
-      <RealtimeProvider>
-        <MainRouter />
-      </RealtimeProvider>
-    </AuthProvider>
+    <HospitalProvider>
+      <AuthProvider>
+        <RealtimeProvider>
+          <MainRouter />
+        </RealtimeProvider>
+      </AuthProvider>
+    </HospitalProvider>
   );
 }

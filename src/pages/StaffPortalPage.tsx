@@ -5,6 +5,7 @@ import { HospitalLogo } from '../components/HospitalLogo';
 import { ConnectionStatusBadge } from '../components/ConnectionStatusBadge';
 import { PhotoUploader } from '../components/PhotoUploader';
 import { CameraCapture } from '../components/CameraCapture';
+import { PublishConfirmationModal } from '../components/PublishConfirmationModal';
 import { Announcement } from '../types';
 import {
   UploadCloud,
@@ -59,8 +60,8 @@ export const StaffPortalPage: React.FC<StaffPortalPageProps> = ({ onOpenTv }) =>
     }
   }, [assignedSpacePath, setCurrentSpacePath]);
 
-  // Upload states
-  const [activeUploadTab, setActiveUploadTab] = useState<'upload' | 'camera'>('upload');
+  // Upload states - default selected option is camera ('camera')
+  const [activeUploadTab, setActiveUploadTab] = useState<'upload' | 'camera'>('camera');
   const [selectedPhoto, setSelectedPhoto] = useState<{
     blob: Blob;
     dataUrl: string;
@@ -72,6 +73,7 @@ export const StaffPortalPage: React.FC<StaffPortalPageProps> = ({ onOpenTv }) =>
   // Requirement: loop default selected (keepExistingActive: true)
   const [keepExistingActive, setKeepExistingActive] = useState(true);
 
+  const [isConfirmModalOpen, setIsConfirmModalOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [feedback, setFeedback] = useState<{ type: 'success' | 'error'; message: string } | null>(
     null
@@ -103,11 +105,18 @@ export const StaffPortalPage: React.FC<StaffPortalPageProps> = ({ onOpenTv }) =>
     });
   }, [announcements, user, assignedSpacePath, selectedSpacePath]);
 
-  const handlePublish = async () => {
+  // Step 1: Open double-confirmation modal
+  const handleOpenConfirm = () => {
     if (!selectedPhoto) {
       setFeedback({ type: 'error', message: 'Por favor selecciona o toma una fotografía primero.' });
       return;
     }
+    setIsConfirmModalOpen(true);
+  };
+
+  // Step 2: On accepting confirmation modal, automatically transmit
+  const handleConfirmAndTransmit = async () => {
+    if (!selectedPhoto) return;
 
     const effectiveSpace = assignedSpacePath || selectedSpacePath || '/tv';
 
@@ -124,6 +133,8 @@ export const StaffPortalPage: React.FC<StaffPortalPageProps> = ({ onOpenTv }) =>
         keepExistingActive,
         effectiveSpace
       );
+
+      setIsConfirmModalOpen(false);
 
       setFeedback({
         type: 'success',
@@ -184,14 +195,6 @@ export const StaffPortalPage: React.FC<StaffPortalPageProps> = ({ onOpenTv }) =>
         <div className="max-w-6xl mx-auto px-4 sm:px-6 h-16 flex items-center justify-between">
           <div className="flex items-center gap-3">
             <HospitalLogo size="sm" />
-            <div className="hidden sm:flex flex-col">
-              <span className="text-xs font-bold text-slate-800 uppercase tracking-wider">
-                Portal de Personal Médico
-              </span>
-              <span className="text-[11px] text-slate-500">
-                Hospital Ginequito • Emisión de Nacimientos
-              </span>
-            </div>
           </div>
 
           <div className="flex items-center gap-3">
@@ -482,7 +485,7 @@ export const StaffPortalPage: React.FC<StaffPortalPageProps> = ({ onOpenTv }) =>
 
                   <button
                     type="button"
-                    onClick={handlePublish}
+                    onClick={handleOpenConfirm}
                     disabled={isSubmitting}
                     className="w-2/3 py-2.5 rounded-xl bg-sky-700 hover:bg-sky-600 text-white text-xs font-bold shadow-md transition-all flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
                   >
@@ -627,6 +630,22 @@ export const StaffPortalPage: React.FC<StaffPortalPageProps> = ({ onOpenTv }) =>
           </section>
         </div>
       </main>
+
+      {/* Modal de Doble Confirmación de Espacio Asignado */}
+      {selectedPhoto && (
+        <PublishConfirmationModal
+          isOpen={isConfirmModalOpen}
+          isLoading={isSubmitting}
+          photoDataUrl={selectedPhoto.dataUrl}
+          babyIdentifier={babyIdentifier}
+          room={roomNumber || currentSpaceObj?.nombre_espacio}
+          spacePath={effectiveSpacePath}
+          keepExistingActive={keepExistingActive}
+          title={customMessage || 'Fotografía de Nacimiento'}
+          onCancel={() => setIsConfirmModalOpen(false)}
+          onConfirm={handleConfirmAndTransmit}
+        />
+      )}
     </div>
   );
 };

@@ -1,10 +1,12 @@
 import React from 'react';
+import { useHospital } from '../context/HospitalContext';
 
 interface HospitalLogoProps {
   size?: 'sm' | 'md' | 'lg' | 'tv';
   inverted?: boolean;
   minimal?: boolean;
   className?: string;
+  customName?: string;
 }
 
 export const HospitalLogo: React.FC<HospitalLogoProps> = ({
@@ -12,7 +14,12 @@ export const HospitalLogo: React.FC<HospitalLogoProps> = ({
   inverted = false,
   minimal = false,
   className = '',
+  customName,
 }) => {
+  const { settings } = useHospital();
+  const displayName = customName || settings.hospitalName || 'HOSPITAL SAN LUCAS';
+  const displaySubname = settings.hospitalSubname || 'Broadcast Hospitalario';
+
   const iconSizes = {
     sm: 'w-6 h-6',
     md: 'w-9 h-9',
@@ -36,32 +43,50 @@ export const HospitalLogo: React.FC<HospitalLogoProps> = ({
 
   return (
     <div id="hospital-brand-logo" className={`flex items-center gap-3 select-none ${className}`}>
-      {/* Hospital Cross & Cradle Heart Emblem */}
-      <div
-        className={`flex items-center justify-center rounded-xl transition-transform ${
-          iconSizes[size]
-        } ${
-          inverted
-            ? 'bg-sky-500/20 text-sky-400 border border-sky-400/30 shadow-inner'
-            : 'bg-sky-700 text-white shadow-md shadow-sky-900/15'
-        }`}
-      >
-        <svg
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="currentColor"
-          strokeWidth="2"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-          className="w-3/5 h-3/5"
+      {/* Custom Hospital Logo Image OR Cross & Cradle Heart Emblem */}
+      {settings.logoUrl ? (
+        <div
+          className={`flex items-center justify-center rounded-xl overflow-hidden ${
+            iconSizes[size]
+          } ${
+            inverted
+              ? 'bg-white/10 p-1 border border-white/20'
+              : 'bg-white p-1 border border-slate-200 shadow-sm'
+          }`}
         >
-          {/* Medical cross with soft heart cradle */}
-          <path d="M12 3v18" />
-          <path d="M3 12h18" />
-          <circle cx="12" cy="12" r="7" strokeOpacity="0.4" strokeWidth="1.5" />
-          <path d="M9 13.5c.8 1.2 2 1.5 3 1.5s2.2-.3 3-1.5" strokeWidth="1.8" />
-        </svg>
-      </div>
+          <img
+            src={settings.logoUrl}
+            alt={displayName}
+            className="w-full h-full object-contain"
+          />
+        </div>
+      ) : (
+        <div
+          className={`flex items-center justify-center rounded-xl transition-transform ${
+            iconSizes[size]
+          } ${
+            inverted
+              ? 'bg-sky-500/20 text-sky-400 border border-sky-400/30 shadow-inner'
+              : 'bg-sky-700 text-white shadow-md shadow-sky-900/15'
+          }`}
+        >
+          <svg
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            className="w-3/5 h-3/5"
+          >
+            {/* Medical cross with soft heart cradle */}
+            <path d="M12 3v18" />
+            <path d="M3 12h18" />
+            <circle cx="12" cy="12" r="7" strokeOpacity="0.4" strokeWidth="1.5" />
+            <path d="M9 13.5c.8 1.2 2 1.5 3 1.5s2.2-.3 3-1.5" strokeWidth="1.8" />
+          </svg>
+        </div>
+      )}
 
       {!minimal && (
         <div className="flex flex-col leading-tight">
@@ -70,14 +95,14 @@ export const HospitalLogo: React.FC<HospitalLogoProps> = ({
               inverted ? 'text-white' : 'text-slate-900'
             }`}
           >
-            HOSPITAL SAN LUCAS
+            {displayName}
           </span>
           <span
             className={`uppercase font-medium tracking-wide ${subTextSizes[size]} ${
               inverted ? 'text-sky-300/90' : 'text-sky-700 font-semibold'
             }`}
           >
-            Broadcast Hospitalario
+            {displaySubname}
           </span>
         </div>
       )}

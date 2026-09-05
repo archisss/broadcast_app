@@ -936,6 +936,17 @@ app.post('/api/doctors', async (req: Request, res: Response) => {
   const validRoles = ['superadmin', 'admin', 'doctor', 'nurse'];
   const assignedRole = validRoles.includes(role) ? role : 'doctor';
 
+  // Both superadmin and admin can create users; but an admin CANNOT create a superadmin
+  const creatorRole = (req.headers['x-user-role'] as string) || (req.body.creator_role as string) || '';
+  if (creatorRole && !['superadmin', 'admin'].includes(creatorRole)) {
+    res.status(403).json({ error: 'Solo un Administrador General o Superadministrador puede registrar nuevos usuarios' });
+    return;
+  }
+  if (assignedRole === 'superadmin' && creatorRole !== 'superadmin') {
+    res.status(403).json({ error: 'Un Administrador General no tiene permisos para crear usuarios con rol Superadministrador' });
+    return;
+  }
+
   const newDoc: DbDoctor = {
     id: `doc_${Date.now()}`,
     name: name.trim(),
@@ -998,6 +1009,12 @@ app.delete('/api/doctors/:id', async (req: Request, res: Response) => {
   const doc = findDoctor(id);
   if (doc?.role === 'superadmin' && doc?.username === 'superadmin') {
     res.status(403).json({ error: 'No se puede eliminar la cuenta del Superadministrador principal' });
+    return;
+  }
+
+  const requesterRole = (req.headers['x-user-role'] as string) || '';
+  if (doc?.role === 'superadmin' && requesterRole !== 'superadmin') {
+    res.status(403).json({ error: 'Un Administrador General no puede eliminar a un Superadministrador' });
     return;
   }
 
@@ -1581,6 +1598,61 @@ app.get('/api/photos/:filename', (req: Request, res: Response) => {
   res.setHeader('X-Content-Type-Options', 'nosniff');
 
   fs.createReadStream(filePath).pipe(res);
+});
+
+// 10. Hospital Identity & Settings REST endpoints
+const SETTINGS_FILE = path.join(process.cwd(), 'data', 'hospital_settings.json');
+function loadHospitalSettings() {
+  try {
+    if (fs.existsSync(SETTINGS_FILE)) {
+      return JSON.parse(fs.readFileSync(SETTINGS_FILE, 'utf-8'));
+    }
+  } catch (e) {
+    console.warn('Could not read hospital settings file:', e);
+  }
+  return {
+    hospitalName: 'HOSPITAL SAN LUCAS',
+    hospitalSubname: 'Broadcast Hospitalario',
+    logoUrl: '',
+  };
+}
+
+function saveHospitalSettings(settings: any) {
+  try {
+    fs.mkdirSync(path.dirname(SETTINGS_FILE), { recursive: true });
+    fs.writeFileSync(SETTINGS_FILE, JSON.stringify(settings, null, 2), 'utf-8');
+  } catch (e) {
+    console.warn('Could not write hospital settings file:', e);
+  }
+}
+
+app.get('/api/hospital-settings', (_req: Request, res: Response) => {
+  res.json({ settings: loadHospitalSettings() });
+});
+
+app.post('/api/hospital-settings', (req: Request, res: Response) => {
+  const current = loadHospitalSettings();
+  const incoming = req.body.settings || req.body;
+  const updated = {
+    ...current,
+    ...(incoming.hospitalName !== undefined ? { hospitalName: String(incoming.hospitalName).trim() } : {}),
+    ...(incoming.hospitalSubname !== undefined ? { hospitalSubname: String(incoming.hospitalSubname).trim() } : {}),
+    ...(incoming.logoUrl !== undefined ? { logoUrl: String(incoming.logoUrl).trim() } : {}),
+  };
+  saveHospitalSettings(updated);
+  res.json({ success: true, settings: updated });
+});
+
+app.post('/api/hospital-settings/logo', upload.single('logo'), (req: Request, res: Response) => {
+  if (req.file) {
+    const logoUrl = `/api/photos/${req.file.filename}`;
+    const current = loadHospitalSettings();
+    current.logoUrl = logoUrl;
+    saveHospitalSettings(current);
+    res.json({ success: true, logoUrl });
+    return;
+  }
+  res.status(400).json({ error: 'No se recibió ningún archivo de logotipo válido' });
 });
 
 // ==========================================

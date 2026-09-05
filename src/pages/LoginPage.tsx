@@ -1,8 +1,7 @@
 import React, { useState } from 'react';
 import { HospitalLogo } from '../components/HospitalLogo';
 import { useAuth } from '../context/AuthContext';
-import { Lock, User, ShieldCheck, Stethoscope, HeartPulse, Shield, KeyRound } from 'lucide-react';
-import { UserRole } from '../types';
+import { Lock, User, ShieldCheck } from 'lucide-react';
 
 interface LoginPageProps {
   onSuccess: () => void;
@@ -10,9 +9,9 @@ interface LoginPageProps {
 }
 
 export const LoginPage: React.FC<LoginPageProps> = ({ onSuccess, onOpenTv }) => {
-  const { login, quickLogin, isLoading } = useAuth();
-  const [username, setUsername] = useState('dra.ruiz');
-  const [password, setPassword] = useState('doctor123');
+  const { login, isLoading } = useAuth();
+  const [username, setUsername] = useState('');
+  const [password, setPassword] = useState('');
   const [error, setError] = useState<string | null>(null);
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -35,11 +34,6 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onSuccess, onOpenTv }) => 
     } catch {
       setError('Error al conectar con el servidor');
     }
-  };
-
-  const handleQuick = async (role: UserRole) => {
-    await quickLogin(role);
-    onSuccess();
   };
 
   return (
@@ -115,72 +109,8 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onSuccess, onOpenTv }) => 
             </button>
           </form>
 
-          {/* Quick Demo Logins for easy testing */}
-          <div className="mt-6 pt-6 border-t border-slate-100">
-            <p className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider mb-2.5 text-center">
-              Acceso Rápido por Rol
-            </p>
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-              <button
-                type="button"
-                onClick={() => {
-                  setUsername('dra.ruiz');
-                  setPassword('doctor123');
-                  handleQuick('doctor');
-                }}
-                className="p-2.5 rounded-xl border border-slate-200 hover:border-sky-300 hover:bg-sky-50 text-center transition-all group cursor-pointer"
-              >
-                <Stethoscope className="w-4 h-4 mx-auto mb-1 text-sky-700 group-hover:scale-110 transition-transform" />
-                <span className="block text-[11px] font-bold text-slate-800">Médico</span>
-                <span className="block text-[9px] text-slate-400 font-mono">dra.ruiz</span>
-              </button>
-
-              <button
-                type="button"
-                onClick={() => {
-                  setUsername('carmen.morales');
-                  setPassword('nurse123');
-                  handleQuick('nurse');
-                }}
-                className="p-2.5 rounded-xl border border-slate-200 hover:border-emerald-300 hover:bg-emerald-50 text-center transition-all group cursor-pointer"
-              >
-                <HeartPulse className="w-4 h-4 mx-auto mb-1 text-emerald-600 group-hover:scale-110 transition-transform" />
-                <span className="block text-[11px] font-bold text-slate-800">Enfermera</span>
-                <span className="block text-[9px] text-slate-400 font-mono">carmen</span>
-              </button>
-
-              <button
-                type="button"
-                onClick={() => {
-                  setUsername('admin');
-                  setPassword('admin123');
-                  handleQuick('admin');
-                }}
-                className="p-2.5 rounded-xl border border-slate-200 hover:border-indigo-300 hover:bg-indigo-50 text-center transition-all group cursor-pointer"
-              >
-                <Shield className="w-4 h-4 mx-auto mb-1 text-indigo-600 group-hover:scale-110 transition-transform" />
-                <span className="block text-[11px] font-bold text-slate-800">Admin</span>
-                <span className="block text-[9px] text-slate-400 font-mono">admin</span>
-              </button>
-
-              <button
-                type="button"
-                onClick={() => {
-                  setUsername('superadmin');
-                  setPassword('admin123');
-                  handleQuick('superadmin');
-                }}
-                className="p-2.5 rounded-xl border border-slate-200 hover:border-amber-300 hover:bg-amber-50 text-center transition-all group cursor-pointer"
-              >
-                <KeyRound className="w-4 h-4 mx-auto mb-1 text-amber-600 group-hover:scale-110 transition-transform" />
-                <span className="block text-[11px] font-bold text-slate-800">Superadmin</span>
-                <span className="block text-[9px] text-slate-400 font-mono">root</span>
-              </button>
-            </div>
-          </div>
-
           {/* TV Link for public waiting room */}
-          <div className="mt-6 pt-4 text-center">
+          <div className="mt-6 pt-4 text-center border-t border-slate-100">
             <button
               id="btn-login-open-tv"
               type="button"

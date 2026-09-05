@@ -17,9 +17,10 @@ import {
   Database,
   Layers,
   Users,
+  Building2,
 } from 'lucide-react';
 
-export type AdminTab = 'dashboard' | 'new' | 'history' | 'audit' | 'spaces' | 'doctors';
+export type AdminTab = 'dashboard' | 'new' | 'history' | 'spaces' | 'doctors' | 'hospital';
 
 interface AdminLayoutProps {
   children: ReactNode;
@@ -202,18 +203,21 @@ export const AdminLayout: React.FC<AdminLayoutProps> = ({
             </button>
           )}
 
-          <button
-            id="tab-nav-audit"
-            onClick={() => onNavigate('audit')}
-            className={`inline-flex items-center gap-2 px-3.5 py-1.5 rounded-xl text-xs font-semibold transition-all whitespace-nowrap cursor-pointer ${
-              activeTab === 'audit'
-                ? 'bg-sky-50 text-sky-700'
-                : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
-            }`}
-          >
-            <ShieldAlert className="w-4 h-4" />
-            <span>Registro de Auditoría</span>
-          </button>
+          {/* Hospital Details Tab (Superadmin only) */}
+          {user?.role === 'superadmin' && (
+            <button
+              id="tab-nav-hospital"
+              onClick={() => onNavigate('hospital')}
+              className={`inline-flex items-center gap-2 px-3.5 py-1.5 rounded-xl text-xs font-semibold transition-all whitespace-nowrap cursor-pointer ${
+                activeTab === 'hospital'
+                  ? 'bg-amber-100 text-amber-900 font-bold border border-amber-200'
+                  : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
+              }`}
+            >
+              <Building2 className="w-4 h-4 text-amber-600" />
+              <span>Detalles del Hospital</span>
+            </button>
+          )}
 
           <button
             id="tab-nav-supabase"

@@ -22,7 +22,8 @@ import {
 } from 'lucide-react';
 
 export const DoctorsManagementPage: React.FC = () => {
-  const { isSuperadmin, user, refreshUser } = useAuth();
+  const { isSuperadmin, isAdmin, user, refreshUser } = useAuth();
+  const canRegisterUsers = isSuperadmin || user?.role === 'admin';
   const { spaces } = useRealtime();
   const [doctors, setDoctors] = useState<Doctor[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -72,13 +73,26 @@ export const DoctorsManagementPage: React.FC = () => {
       return;
     }
 
+    if (!canRegisterUsers) {
+      setError('Solo un Administrador General o Superadministrador puede registrar nuevos usuarios.');
+      return;
+    }
+
+    if (user?.role === 'admin' && role === 'superadmin') {
+      setError('Un Administrador General no tiene permisos para crear usuarios con rol Superadministrador.');
+      return;
+    }
+
     setIsSubmitting(true);
     setError(null);
 
     try {
       const res = await fetch('/api/doctors', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          'x-user-role': user?.role || '',
+        },
         body: JSON.stringify({
           name: name.trim(),
           username: username.trim().toLowerCase(),
@@ -86,6 +100,7 @@ export const DoctorsManagementPage: React.FC = () => {
           specialty: specialty.trim(),
           role,
           assigned_space_path: assignedSpacePath.trim(),
+          creator_role: user?.role || '',
         }),
       });
 
@@ -152,11 +167,27 @@ CREATE INDEX IF NOT EXISTS idx_doctors_assigned_space ON public.doctors(assigned
       alert('Debe existir al menos un usuario en el sistema.');
       return;
     }
+
+    const targetDoc = doctors.find((d) => d.id === id);
+    if (targetDoc?.role === 'superadmin' && !isSuperadmin) {
+      setError('Un Administrador General no tiene permisos para eliminar a un Superadministrador.');
+      setTimeout(() => setError(null), 4000);
+      return;
+    }
+
     if (!window.confirm(`¿Seguro que deseas eliminar al usuario "${doctorName}"?`)) return;
 
     try {
-      const res = await fetch(`/api/doctors/${id}`, { method: 'DELETE' });
-      if (!res.ok) throw new Error('Error al eliminar');
+      const res = await fetch(`/api/doctors/${id}`, {
+        method: 'DELETE',
+        headers: {
+          'x-user-role': user?.role || '',
+        },
+      });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        throw new Error(data.error || 'Error al eliminar usuario');
+      }
       setDoctors((prev) => prev.filter((d) => d.id !== id));
       setSuccessMsg(`Usuario "${doctorName}" eliminado del sistema.`);
       setTimeout(() => setSuccessMsg(null), 3000);
@@ -194,35 +225,42 @@ CREATE INDEX IF NOT EXISTS idx_doctors_assigned_space ON public.doctors(assigned
             Médicos y Administradores
           </h1>
           <p className="text-xs sm:text-sm text-slate-500 max-w-2xl">
-            Administra los usuarios autorizados para ingresar al sistema y publicar fotografías o comunicados en las pantallas del hospital. Como <span className="font-semibold text-slate-700">Superadministrador</span> tienes control total sobre credenciales y permisos.
+            Administra los usuarios autorizados para ingresar al sistema y publicar fotografías o comunicados en las pantallas del hospital. {isSuperadmin ? 'Como Superadministrador tienes control total sobre credenciales y permisos.' : 'Como Administrador General puedes registrar y gestionar médicos, enfermeras y administradores.'}
           </p>
         </div>
 
         <div className="flex items-center gap-3 shrink-0">
-          <button
-            type="button"
-            onClick={() => setShowSqlGuide(!showSqlGuide)}
-            className="inline-flex items-center gap-2 px-4 py-3 rounded-2xl border border-slate-300 bg-slate-50 hover:bg-slate-100 text-slate-700 text-xs font-semibold transition-all cursor-pointer"
-            title="Ver SQL para base de datos Supabase externa"
-          >
-            <KeyRound className="w-4 h-4 text-sky-600" />
-            <span>{showSqlGuide ? 'Ocultar SQL' : 'Script SQL Supabase'}</span>
-          </button>
+          {isSuperadmin && (
+            <button
+              type="button"
+              onClick={() => setShowSqlGuide(!showSqlGuide)}
+              className="inline-flex items-center gap-2 px-4 py-3 rounded-2xl border border-slate-300 bg-slate-50 hover:bg-slate-100 text-slate-700 text-xs font-semibold transition-all cursor-pointer"
+              title="Ver SQL para base de datos Supabase externa"
+            >
+              <KeyRound className="w-4 h-4 text-sky-600" />
+              <span>{showSqlGuide ? 'Ocultar SQL' : 'Script SQL Supabase'}</span>
+            </button>
+          )}
 
-          <button
-            id="btn-open-new-doctor-modal"
-            type="button"
-            onClick={() => setIsModalOpen(true)}
-            className="inline-flex items-center gap-2.5 px-6 py-3.5 rounded-2xl bg-sky-700 hover:bg-sky-600 text-white text-xs font-bold shadow-md shadow-sky-900/15 transition-all cursor-pointer"
-          >
-            <UserPlus className="w-4 h-4" />
-            <span>Registrar Nuevo Médico</span>
-          </button>
+          {canRegisterUsers && (
+            <button
+              id="btn-open-new-doctor-modal"
+              type="button"
+              onClick={() => {
+                setRole('doctor');
+                setIsModalOpen(true);
+              }}
+              className="inline-flex items-center gap-2.5 px-6 py-3.5 rounded-2xl bg-sky-700 hover:bg-sky-600 text-white text-xs font-bold shadow-md shadow-sky-900/15 transition-all cursor-pointer"
+            >
+              <UserPlus className="w-4 h-4" />
+              <span>Registrar Nuevo Médico</span>
+            </button>
+          )}
         </div>
       </div>
 
-      {/* Supabase SQL Helper Panel */}
-      {showSqlGuide && (
+      {/* Supabase SQL Helper Panel (Solo visible para Superadmin) */}
+      {isSuperadmin && showSqlGuide && (
         <div className="p-5 bg-slate-900 text-slate-100 rounded-3xl border border-slate-800 space-y-3 animate-fade-in text-xs font-mono">
           <div className="flex items-center justify-between font-sans">
             <div>
@@ -417,7 +455,7 @@ CREATE INDEX IF NOT EXISTS idx_doctors_assigned_space ON public.doctors(assigned
                             )}
                           </button>
 
-                          {!isCurrentLoggedUser && (
+                          {!isCurrentLoggedUser && (isSuperadmin || doc.role !== 'superadmin') && (
                             <button
                               type="button"
                               onClick={() => handleDeleteDoctor(doc.id, doc.name)}
@@ -533,8 +571,10 @@ CREATE INDEX IF NOT EXISTS idx_doctors_assigned_space ON public.doctors(assigned
                   >
                     <option value="doctor">Médico / Especialista</option>
                     <option value="nurse">Enfermera / Cuidados</option>
-                    <option value="admin">Administrador (Mismas funciones que Superadmin)</option>
-                    <option value="superadmin">Superadministrador</option>
+                    <option value="admin">Administrador General</option>
+                    {isSuperadmin && (
+                      <option value="superadmin">Superadministrador (Acceso Total)</option>
+                    )}
                   </select>
                 </div>
               </div>

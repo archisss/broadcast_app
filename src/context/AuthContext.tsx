@@ -13,6 +13,7 @@ interface AuthContextType {
   canHide: boolean;
   canViewAudit: boolean;
   isSuperadmin: boolean;
+  isAdmin: boolean;
   canManageSpaces: boolean;
   canManageDoctors: boolean;
 }
@@ -223,9 +224,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     localStorage.removeItem('hospital_auth_token');
   };
 
-  const isSuperadmin = user?.role === 'superadmin' || user?.role === 'admin';
-  const canManageSpaces = isSuperadmin || user?.role === 'admin';
-  const canManageDoctors = isSuperadmin || user?.role === 'admin';
+  const isSuperadmin = user?.role === 'superadmin';
+  const isAdmin = user?.role === 'admin';
+  const canManageSpaces = isSuperadmin || isAdmin;
+  const canManageDoctors = isSuperadmin || isAdmin;
   const canPublish = user ? ['superadmin', 'admin', 'doctor', 'nurse'].includes(user.role) : false;
   const canHide = user ? ['superadmin', 'admin', 'doctor', 'nurse'].includes(user.role) : false;
   const canViewAudit = user ? ['superadmin', 'admin', 'doctor'].includes(user.role) : false;
@@ -244,6 +246,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         canHide,
         canViewAudit,
         isSuperadmin,
+        isAdmin,
         canManageSpaces,
         canManageDoctors,
       }}

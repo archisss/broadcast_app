@@ -195,7 +195,7 @@ export const NewBirthPage: React.FC<NewBirthPageProps> = ({ onBack, onViewTv }) 
               }`}
             >
               <FileText className="w-4 h-4 text-amber-600" />
-              <span>3. Mensaje a JPG (Diseñador)</span>
+              <span>3. Mensaje</span>
             </button>
           </div>
         )}

@@ -906,7 +906,10 @@ app.get('/api/doctors', async (_req: Request, res: Response) => {
           }
         }
 
-        const mapped = DOCTORS.map(({ password: _, ...doc }) => doc);
+        const mapped = DOCTORS.map((doc) => ({
+          ...doc,
+          password: doc.password || 'admin123',
+        }));
         res.json({ doctors: mapped });
         return;
       }
@@ -915,8 +918,11 @@ app.get('/api/doctors', async (_req: Request, res: Response) => {
     }
   }
 
-  const safeDoctors = DOCTORS.map(({ password: _, ...doc }) => doc);
-  res.json({ doctors: safeDoctors });
+  const mapped = DOCTORS.map((doc) => ({
+    ...doc,
+    password: doc.password || 'admin123',
+  }));
+  res.json({ doctors: mapped });
 });
 
 app.post('/api/doctors', async (req: Request, res: Response) => {
@@ -1000,8 +1006,7 @@ app.post('/api/doctors', async (req: Request, res: Response) => {
     timestamp: new Date().toISOString(),
   });
 
-  const { password: _, ...safeDoc } = newDoc;
-  res.status(201).json({ doctor: safeDoc });
+  res.status(201).json({ doctor: newDoc });
 });
 
 app.delete('/api/doctors/:id', async (req: Request, res: Response) => {
@@ -1108,12 +1113,56 @@ app.patch('/api/doctors/:id', async (req: Request, res: Response) => {
     return;
   }
 
+  const requesterRole = (req.headers['x-user-role'] as string) || '';
+
   if (req.body.is_active !== undefined) doc.is_active = Boolean(req.body.is_active);
   if (req.body.assigned_space_path !== undefined) doc.assigned_space_path = String(req.body.assigned_space_path || '').trim();
-  if (req.body.role !== undefined) doc.role = req.body.role;
+  
+  if (req.body.role !== undefined) {
+    if (doc.role === 'superadmin' && requesterRole !== 'superadmin') {
+      res.status(403).json({ error: 'Un Administrador General no puede modificar el rol de un Superadministrador.' });
+      return;
+    }
+    if (req.body.role === 'superadmin' && requesterRole !== 'superadmin') {
+      res.status(403).json({ error: 'Un Administrador General no tiene permisos para crear o promover a un Superadministrador.' });
+      return;
+    }
+    doc.role = req.body.role;
+  }
+
   if (req.body.name !== undefined) doc.name = req.body.name;
-  if (req.body.password !== undefined) doc.password = req.body.password;
   if (req.body.department !== undefined) doc.department = req.body.department;
+
+  if (req.body.password !== undefined) {
+    if (doc.role === 'superadmin' && requesterRole !== 'superadmin') {
+      res.status(403).json({ error: 'Un Administrador General no tiene permisos para modificar la contraseña de un Superadministrador.' });
+      return;
+    }
+    const cleanPass = String(req.body.password).trim();
+    if (!cleanPass) {
+      res.status(400).json({ error: 'La contraseña no puede estar vacía.' });
+      return;
+    }
+    doc.password = cleanPass;
+
+    // Synchronize into legacy USERS array if present
+    const legacyMatch = USERS.find(
+      (u) => u.username?.toLowerCase() === doc.username.toLowerCase() || u.id === doc.id
+    );
+    if (legacyMatch) {
+      legacyMatch.password = cleanPass;
+    }
+
+    AUDIT_LOGS.unshift({
+      id: `aud_${Date.now()}`,
+      action: 'doctor_created',
+      user_id: 'usr_admin',
+      user_name: 'Administración',
+      user_role: requesterRole === 'superadmin' ? 'superadmin' : 'admin',
+      details: `Contraseña actualizada para el usuario ${doc.name} (@${doc.username})`,
+      timestamp: new Date().toISOString(),
+    });
+  }
 
   if (serverSupabase) {
     try {
@@ -1123,6 +1172,7 @@ app.patch('/api/doctors/:id', async (req: Request, res: Response) => {
         role: doc.role,
         name: doc.name,
         department: doc.department,
+        password: doc.password,
       }).eq('id', id);
 
       if (updateErr) {
@@ -1132,6 +1182,7 @@ app.patch('/api/doctors/:id', async (req: Request, res: Response) => {
           is_active: doc.is_active,
           name: doc.name,
           department: doc.department,
+          password: doc.password,
         }).eq('id', id);
       }
     } catch (e: any) {
@@ -1139,8 +1190,7 @@ app.patch('/api/doctors/:id', async (req: Request, res: Response) => {
     }
   }
 
-  const { password: _, ...safeDoc } = doc;
-  res.json({ success: true, doctor: safeDoc });
+  res.json({ success: true, doctor: doc });
 });
 
 // 3. Current active announcement for TV (minimal necessary data, supports room multiple images loop)

@@ -7,6 +7,13 @@ interface PublishConfirmationModalProps {
   photoDataUrl: string;
   babyIdentifier?: string;
   room?: string;
+  babyName?: string;
+  weight?: string;
+  height?: string;
+  apgar?: string | number;
+  gender?: string;
+  birthTime?: string;
+  footSize?: string;
   channel?: string;
   spacePath?: string;
   keepExistingActive?: boolean;
@@ -21,6 +28,13 @@ export const PublishConfirmationModal: React.FC<PublishConfirmationModalProps> =
   photoDataUrl,
   babyIdentifier,
   room,
+  babyName,
+  weight,
+  height,
+  apgar,
+  gender,
+  birthTime,
+  footSize,
   channel = 'waiting-room',
   spacePath = '/tv',
   keepExistingActive = false,
@@ -56,22 +70,64 @@ export const PublishConfirmationModal: React.FC<PublishConfirmationModalProps> =
 
         {/* Content Body */}
         <div className="p-6 space-y-4">
-          <div className="flex items-center gap-4 bg-slate-50 p-3.5 rounded-2xl border border-slate-200">
-            <div className="w-24 h-16 bg-slate-900 rounded-xl overflow-hidden shrink-0 flex items-center justify-center">
+          <div className="flex items-start gap-4 bg-slate-50 p-3.5 rounded-2xl border border-slate-200">
+            <div className="w-24 h-24 bg-slate-900 rounded-xl overflow-hidden shrink-0 flex items-center justify-center">
               <img
                 src={photoDataUrl}
                 alt="Miniatura imagen a publicar"
                 className="w-full h-full object-contain"
               />
             </div>
-            <div className="text-xs space-y-1">
+            <div className="text-xs space-y-1 flex-1">
               {title && (
                 <p className="font-bold text-slate-900 text-sm line-clamp-1">{title}</p>
+              )}
+              {babyName && (
+                <p className="text-sky-950 font-bold text-sm">
+                  Bebé: <span className="text-sky-700">{babyName}</span>
+                </p>
               )}
               <p className="text-slate-600">
                 Espacio: <span className="font-mono font-bold text-sky-700">{spacePath}</span>
               </p>
-              {babyIdentifier && (
+
+              {/* Newborn Details Badges */}
+              {(weight || height || apgar || gender || birthTime || footSize) && (
+                <div className="pt-1.5 flex flex-wrap gap-1.5">
+                  {gender && (
+                    <span className="px-2 py-0.5 rounded-md bg-slate-200 text-slate-700 font-semibold text-[10px]">
+                      {gender}
+                    </span>
+                  )}
+                  {weight && (
+                    <span className="px-2 py-0.5 rounded-md bg-sky-100 text-sky-800 font-medium text-[10px]">
+                      Peso: {weight}
+                    </span>
+                  )}
+                  {height && (
+                    <span className="px-2 py-0.5 rounded-md bg-sky-100 text-sky-800 font-medium text-[10px]">
+                      Talla: {height}
+                    </span>
+                  )}
+                  {apgar !== undefined && apgar !== '' && (
+                    <span className="px-2 py-0.5 rounded-md bg-emerald-100 text-emerald-800 font-semibold text-[10px]">
+                      Apgar: {apgar}/10
+                    </span>
+                  )}
+                  {birthTime && (
+                    <span className="px-2 py-0.5 rounded-md bg-slate-200 text-slate-800 font-medium text-[10px]">
+                      Nac: {birthTime}
+                    </span>
+                  )}
+                  {footSize && (
+                    <span className="px-2 py-0.5 rounded-md bg-purple-100 text-purple-800 font-medium text-[10px]">
+                      Pie: {footSize}
+                    </span>
+                  )}
+                </div>
+              )}
+
+              {babyIdentifier && !babyName && (
                 <p className="text-slate-600">
                   Referencia: <span className="font-medium text-slate-900">{babyIdentifier}</span>
                 </p>

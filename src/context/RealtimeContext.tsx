@@ -244,6 +244,19 @@ export function RealtimeProvider({ children }: { children: ReactNode }) {
         }
       });
 
+      // Hospital settings updated in real-time
+      es.addEventListener('hospital_settings:updated', (e: MessageEvent) => {
+        if (!isMounted) return;
+        try {
+          const data = e.data ? JSON.parse(e.data) : {};
+          if (data && data.settings) {
+            window.dispatchEvent(new CustomEvent('hospital-settings-updated', { detail: data.settings }));
+          }
+        } catch (err) {
+          console.error('Failed to handle hospital_settings:updated:', err);
+        }
+      });
+
       es.onerror = () => {
         if (!isMounted) return;
         setConnectionState('reconnecting');
@@ -396,6 +409,14 @@ export function RealtimeProvider({ children }: { children: ReactNode }) {
           baby_identifier: payload.babyIdentifier,
           room: payload.room,
           birth_datetime: payload.birthDatetime || new Date().toISOString(),
+          // New newborn fields
+          baby_name: payload.babyName,
+          weight: payload.weight,
+          height: payload.height,
+          apgar: payload.apgar,
+          gender: payload.gender,
+          birth_time: payload.birthTime,
+          foot_size: payload.footSize,
           channel: payload.channel || (targetSpace ? targetSpace.replace(/^\//, '') : channel),
           space_path: targetSpace,
           space_id: isUuid(payload.space_id) ? payload.space_id : undefined,
@@ -443,6 +464,13 @@ export function RealtimeProvider({ children }: { children: ReactNode }) {
               baby_identifier: payload.babyIdentifier?.trim() || null,
               room: payload.room?.trim() || null,
               birth_datetime: payload.birthDatetime || new Date().toISOString(),
+              baby_name: payload.babyName?.trim() || null,
+              weight: payload.weight?.trim() || null,
+              height: payload.height?.trim() || null,
+              apgar: payload.apgar ? String(payload.apgar).trim() : null,
+              gender: payload.gender?.trim() || null,
+              birth_time: payload.birthTime?.trim() || null,
+              foot_size: payload.footSize?.trim() || null,
               is_active: true,
               published_at: new Date().toISOString(),
               published_by_name: user?.name || 'Personal Médico',

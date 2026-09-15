@@ -39,7 +39,7 @@ export const HospitalProvider: React.FC<{ children: ReactNode }> = ({ children }
 
   const [isLoading, setIsLoading] = useState(false);
 
-  // Fetch settings from server on initial mount
+  // Fetch settings from server on initial mount & listen to real-time events
   useEffect(() => {
     let isMounted = true;
     const fetchSettings = async () => {
@@ -62,8 +62,35 @@ export const HospitalProvider: React.FC<{ children: ReactNode }> = ({ children }
     };
 
     fetchSettings();
+
+    // Listen for custom event triggered by SSE or other components
+    const handleSettingsUpdated = (e: Event) => {
+      const customEvt = e as CustomEvent<HospitalSettings>;
+      if (customEvt.detail && isMounted) {
+        setSettings((prev) => ({ ...prev, ...customEvt.detail }));
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(customEvt.detail));
+      }
+    };
+
+    // Listen for storage changes across tabs
+    const handleStorageChange = (e: StorageEvent) => {
+      if (e.key === STORAGE_KEY && e.newValue && isMounted) {
+        try {
+          const parsed = JSON.parse(e.newValue);
+          setSettings((prev) => ({ ...prev, ...parsed }));
+        } catch {
+          // ignore
+        }
+      }
+    };
+
+    window.addEventListener('hospital-settings-updated', handleSettingsUpdated);
+    window.addEventListener('storage', handleStorageChange);
+
     return () => {
       isMounted = false;
+      window.removeEventListener('hospital-settings-updated', handleSettingsUpdated);
+      window.removeEventListener('storage', handleStorageChange);
     };
   }, []);
 
@@ -71,6 +98,7 @@ export const HospitalProvider: React.FC<{ children: ReactNode }> = ({ children }
     setIsLoading(true);
     const updated = { ...settings, ...newSettings };
     setSettings(updated);
+    window.dispatchEvent(new CustomEvent('hospital-settings-updated', { detail: updated }));
 
     try {
       localStorage.setItem(STORAGE_KEY, JSON.stringify(updated));

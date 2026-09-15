@@ -37,9 +37,17 @@ export interface TvAnnouncement {
   photo_path: string; // File path or storage key or data url
   photo_url: string; // Signed or access URL
   thumbnail_url?: string;
-  baby_identifier?: string; // e.g. "RN-2026-089" (optional)
+  baby_identifier?: string; // Legacy e.g. "RN-2026-089" (optional)
   room?: string; // e.g. "Habitación 302" o "Master Suite" (optional)
   birth_datetime?: string; // ISO date string (optional)
+  // New Newborn fields
+  baby_name?: string; // Nombre: campo de texto (ej. "Juan Pedro")
+  weight?: string; // Peso: expresado en kg o gramos (ej. "1.3 kg" o "3100 g")
+  height?: string; // Talla: expresado en cm (ej. "70 cm")
+  apgar?: string | number; // Apgar: campo numérico entre 0 y 10 (ej. 9)
+  gender?: string; // Sexo: masculino o femenino (ej. "Masculino" o "Femenino")
+  birth_time?: string; // Hora de Nacimiento: formato mx dia,mes,año DD,MM,YYYY (ej. "15/10/2026")
+  foot_size?: string; // Pie: expresado en cm (ej. "8 cm")
   is_active: boolean;
   published_at: string; // ISO date string
   published_by_id: string;
@@ -74,6 +82,14 @@ export interface CreateAnnouncementPayload {
   babyIdentifier?: string;
   room?: string;
   birthDatetime?: string;
+  // New newborn fields (all optional)
+  babyName?: string; // Nombre: campo de texto (ej. "Juan Pedro")
+  weight?: string; // Peso: kg o gramos (ej. "1.3 kg")
+  height?: string; // Talla: cm (ej. "70 cm")
+  apgar?: string | number; // Apgar: 0 a 10 (ej. 9)
+  gender?: string; // Sexo: Masculino o Femenino
+  birthTime?: string; // Hora de Nacimiento: formato MX DD/MM/YYYY (ej. "15/10/2026")
+  footSize?: string; // Pie: cm (ej. "8 cm")
   channel?: string;
   space_path?: string;
   space_id?: string;

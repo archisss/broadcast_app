@@ -48,13 +48,14 @@ export const NewBirthPage: React.FC<NewBirthPageProps> = ({ onBack, onViewTv }) 
   const [keepExistingActive, setKeepExistingActive] = useState(true);
   const [title, setTitle] = useState('');
   const [message, setMessage] = useState('');
-  const [babyIdentifier, setBabyIdentifier] = useState('');
-  const [room, setRoom] = useState('');
-  const [birthDatetime, setBirthDatetime] = useState(() => {
-    const now = new Date();
-    now.setMinutes(now.getMinutes() - now.getTimezoneOffset());
-    return now.toISOString().slice(0, 16);
-  });
+  // New newborn fields (all optional)
+  const [babyName, setBabyName] = useState('');
+  const [weight, setWeight] = useState('');
+  const [height, setHeight] = useState('');
+  const [apgar, setApgar] = useState('');
+  const [gender, setGender] = useState('');
+  const [birthTime, setBirthTime] = useState('');
+  const [footSize, setFootSize] = useState('');
 
   const [isConfirmModalOpen, setIsConfirmModalOpen] = useState(false);
 
@@ -88,9 +89,13 @@ export const NewBirthPage: React.FC<NewBirthPageProps> = ({ onBack, onViewTv }) 
 
     const ok = await publishAnnouncement({
       photoBase64: photoData.dataUrl,
-      babyIdentifier: babyIdentifier.trim() || undefined,
-      room: room.trim() || undefined,
-      birthDatetime: birthDatetime || new Date().toISOString(),
+      babyName: babyName.trim() || undefined,
+      weight: weight.trim() || undefined,
+      height: height.trim() || undefined,
+      apgar: apgar ? String(apgar).trim() : undefined,
+      gender: gender.trim() || undefined,
+      birthTime: birthTime.trim() || undefined,
+      footSize: footSize.trim() || undefined,
       channel: selectedSpacePath.replace(/^\//, '') || 'waiting-room',
       space_path: selectedSpacePath,
       keepExistingActive,
@@ -223,7 +228,7 @@ export const NewBirthPage: React.FC<NewBirthPageProps> = ({ onBack, onViewTv }) 
             <MessageToImageGenerator
               onImageGenerated={handleMessageImageReady}
               defaultDoctor={user?.name}
-              defaultRoom={room}
+              defaultRoom=""
             />
           </div>
         )}
@@ -233,12 +238,20 @@ export const NewBirthPage: React.FC<NewBirthPageProps> = ({ onBack, onViewTv }) 
           <PhotoPreview
             dataUrl={photoData.dataUrl}
             size={photoData.size}
-            babyIdentifier={babyIdentifier}
-            setBabyIdentifier={setBabyIdentifier}
-            room={room}
-            setRoom={setRoom}
-            birthDatetime={birthDatetime}
-            setBirthDatetime={setBirthDatetime}
+            babyName={babyName}
+            setBabyName={setBabyName}
+            weight={weight}
+            setWeight={setWeight}
+            height={height}
+            setHeight={setHeight}
+            apgar={apgar}
+            setApgar={setApgar}
+            gender={gender}
+            setGender={setGender}
+            birthTime={birthTime}
+            setBirthTime={setBirthTime}
+            footSize={footSize}
+            setFootSize={setFootSize}
             spacePath={selectedSpacePath}
             setSpacePath={setSelectedSpacePath}
             keepExistingActive={keepExistingActive}
@@ -283,8 +296,13 @@ export const NewBirthPage: React.FC<NewBirthPageProps> = ({ onBack, onViewTv }) 
                 id="btn-success-new-another"
                 onClick={() => {
                   setPhotoData(null);
-                  setBabyIdentifier('');
-                  setRoom('');
+                  setBabyName('');
+                  setWeight('');
+                  setHeight('');
+                  setApgar('');
+                  setGender('');
+                  setBirthTime('');
+                  setFootSize('');
                   setTitle('');
                   setMessage('');
                   setMode('camera');
@@ -304,8 +322,13 @@ export const NewBirthPage: React.FC<NewBirthPageProps> = ({ onBack, onViewTv }) 
           isOpen={isConfirmModalOpen}
           isLoading={isPublishing}
           photoDataUrl={photoData.dataUrl}
-          babyIdentifier={babyIdentifier}
-          room={room}
+          babyName={babyName}
+          weight={weight}
+          height={height}
+          apgar={apgar}
+          gender={gender}
+          birthTime={birthTime}
+          footSize={footSize}
           spacePath={selectedSpacePath}
           keepExistingActive={keepExistingActive}
           title={title}

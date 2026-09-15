@@ -24,6 +24,11 @@ import {
   RefreshCw,
   Image as ImageIcon,
   User,
+  Baby,
+  Weight,
+  Ruler,
+  Activity,
+  Footprints,
 } from 'lucide-react';
 
 interface StaffPortalPageProps {
@@ -67,9 +72,14 @@ export const StaffPortalPage: React.FC<StaffPortalPageProps> = ({ onOpenTv }) =>
     dataUrl: string;
     size: number;
   } | null>(null);
-  const [babyIdentifier, setBabyIdentifier] = useState('');
-  const [roomNumber, setRoomNumber] = useState('');
-  const [customMessage, setCustomMessage] = useState('');
+  // New newborn fields (all optional)
+  const [babyName, setBabyName] = useState('');
+  const [weight, setWeight] = useState('');
+  const [height, setHeight] = useState('');
+  const [apgar, setApgar] = useState('');
+  const [gender, setGender] = useState('');
+  const [birthTime, setBirthTime] = useState('');
+  const [footSize, setFootSize] = useState('');
   // Requirement: loop default selected (keepExistingActive: true)
   const [keepExistingActive, setKeepExistingActive] = useState(true);
 
@@ -124,15 +134,20 @@ export const StaffPortalPage: React.FC<StaffPortalPageProps> = ({ onOpenTv }) =>
     setFeedback(null);
 
     try {
-      await publishAnnouncement(
-        selectedPhoto.blob,
-        babyIdentifier.trim() || undefined,
-        roomNumber.trim() || currentSpaceObj?.nombre_espacio || undefined,
-        customMessage.trim() || undefined,
-        undefined,
+      await publishAnnouncement({
+        photoBase64: selectedPhoto.dataUrl,
+        babyName: babyName.trim() || undefined,
+        weight: weight.trim() || undefined,
+        height: height.trim() || undefined,
+        apgar: apgar ? String(apgar).trim() : undefined,
+        gender: gender.trim() || undefined,
+        birthTime: birthTime.trim() || undefined,
+        footSize: footSize.trim() || undefined,
         keepExistingActive,
-        effectiveSpace
-      );
+        space_path: effectiveSpace,
+        channel: effectiveSpace.replace(/^\//, '') || 'waiting-room',
+        room: currentSpaceObj?.nombre_espacio || undefined,
+      });
 
       setIsConfirmModalOpen(false);
 
@@ -143,9 +158,13 @@ export const StaffPortalPage: React.FC<StaffPortalPageProps> = ({ onOpenTv }) =>
 
       // Clear form
       setSelectedPhoto(null);
-      setBabyIdentifier('');
-      setRoomNumber('');
-      setCustomMessage('');
+      setBabyName('');
+      setWeight('');
+      setHeight('');
+      setApgar('');
+      setGender('');
+      setBirthTime('');
+      setFootSize('');
       setKeepExistingActive(true);
 
       setTimeout(() => setFeedback(null), 5000);
@@ -409,49 +428,143 @@ export const StaffPortalPage: React.FC<StaffPortalPageProps> = ({ onOpenTv }) =>
                   </div>
                 </div>
 
-                {/* Optional Metadata Fields */}
-                <div className="space-y-3">
+                {/* Optional Newborn Clinical & Birth Information */}
+                <div className="space-y-3 bg-slate-50/80 p-3.5 rounded-2xl border border-slate-200">
+                  <div className="flex items-center justify-between border-b border-slate-200/60 pb-2">
+                    <span className="text-xs font-bold text-slate-800 flex items-center gap-1.5">
+                      <Baby className="w-3.5 h-3.5 text-sky-700" />
+                      Datos del Recién Nacido
+                    </span>
+                    <span className="text-[10px] text-slate-400">Todos opcionales</span>
+                  </div>
+
+                  {/* 1. Nombre */}
                   <div>
-                    <label className="block text-xs font-bold text-slate-700 mb-1">
-                      Identificador / Apellidos del Bebé (Opcional)
+                    <label className="block text-xs font-semibold text-slate-700 mb-1 flex items-center gap-1">
+                      <Baby className="w-3 h-3 text-sky-600" />
+                      Nombre (Opcional)
                     </label>
                     <input
                       type="text"
-                      value={babyIdentifier}
-                      onChange={(e) => setBabyIdentifier(e.target.value)}
-                      placeholder="Ej. Bebé Hernández Garza"
-                      className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-xl text-xs text-slate-900 focus:outline-none focus:ring-2 focus:ring-sky-500"
+                      value={babyName}
+                      onChange={(e) => setBabyName(e.target.value)}
+                      placeholder="Ej. Juan Pedro"
+                      className="w-full px-3 py-2 bg-white border border-slate-300 rounded-xl text-xs text-slate-900 focus:outline-none focus:ring-2 focus:ring-sky-500"
                     />
                   </div>
 
-                  <div>
-                    <label className="block text-xs font-semibold text-slate-700 mb-1">
-                      Habitación (Opcional)
-                    </label>
-                    <input
-                      type="text"
-                      value={roomNumber}
-                      onChange={(e) => setRoomNumber(e.target.value)}
-                      placeholder="Ej. Suite 302"
-                      className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-xl text-xs text-slate-900 focus:outline-none focus:ring-2 focus:ring-sky-500"
-                    />
+                  {/* 2. Peso y 3. Talla */}
+                  <div className="grid grid-cols-2 gap-2.5">
+                    <div>
+                      <label className="block text-xs font-semibold text-slate-700 mb-1 flex items-center gap-1">
+                        <Weight className="w-3 h-3 text-sky-600" />
+                        Peso (kg o gramos)
+                      </label>
+                      <input
+                        type="text"
+                        value={weight}
+                        onChange={(e) => setWeight(e.target.value)}
+                        placeholder="Ej. 1.3 kg o 3200 g"
+                        className="w-full px-3 py-2 bg-white border border-slate-300 rounded-xl text-xs text-slate-900 focus:outline-none focus:ring-2 focus:ring-sky-500"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-semibold text-slate-700 mb-1 flex items-center gap-1">
+                        <Ruler className="w-3 h-3 text-sky-600" />
+                        Talla (en cm)
+                      </label>
+                      <input
+                        type="text"
+                        value={height}
+                        onChange={(e) => setHeight(e.target.value)}
+                        placeholder="Ej. 70 cm"
+                        className="w-full px-3 py-2 bg-white border border-slate-300 rounded-xl text-xs text-slate-900 focus:outline-none focus:ring-2 focus:ring-sky-500"
+                      />
+                    </div>
                   </div>
 
-                  <div>
-                    <label className="block text-xs font-semibold text-slate-700 mb-1">
-                      Mensaje de Felicitación (Opcional)
-                    </label>
-                    <input
-                      type="text"
-                      value={customMessage}
-                      onChange={(e) => setCustomMessage(e.target.value)}
-                      placeholder="Ej. ¡Bienvenido al mundo!"
-                      className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-xl text-xs text-slate-900 focus:outline-none focus:ring-2 focus:ring-sky-500"
-                    />
+                  {/* 4. Apgar y 5. Sexo */}
+                  <div className="grid grid-cols-2 gap-2.5">
+                    <div>
+                      <label className="block text-xs font-semibold text-slate-700 mb-1 flex items-center gap-1">
+                        <Activity className="w-3 h-3 text-sky-600" />
+                        Apgar (0 a 10)
+                      </label>
+                      <input
+                        type="number"
+                        min="0"
+                        max="10"
+                        step="1"
+                        value={apgar}
+                        onChange={(e) => setApgar(e.target.value)}
+                        placeholder="Ej. 9"
+                        className="w-full px-3 py-2 bg-white border border-slate-300 rounded-xl text-xs text-slate-900 focus:outline-none focus:ring-2 focus:ring-sky-500"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-semibold text-slate-700 mb-1">
+                        Sexo
+                      </label>
+                      <div className="grid grid-cols-2 gap-1.5">
+                        <button
+                          type="button"
+                          onClick={() => setGender(gender === 'Masculino' ? '' : 'Masculino')}
+                          className={`py-1.5 px-2 rounded-xl text-[11px] font-semibold border transition-all cursor-pointer ${
+                            gender === 'Masculino'
+                              ? 'bg-sky-600 text-white border-sky-600'
+                              : 'bg-white text-slate-700 border-slate-300 hover:bg-slate-100'
+                          }`}
+                        >
+                          Masc
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setGender(gender === 'Femenino' ? '' : 'Femenino')}
+                          className={`py-1.5 px-2 rounded-xl text-[11px] font-semibold border transition-all cursor-pointer ${
+                            gender === 'Femenino'
+                              ? 'bg-rose-500 text-white border-rose-500'
+                              : 'bg-white text-slate-700 border-slate-300 hover:bg-slate-100'
+                          }`}
+                        >
+                          Fem
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* 6. Hora de Nacimiento y 7. Pie */}
+                  <div className="grid grid-cols-2 gap-2.5">
+                    <div>
+                      <label className="block text-xs font-semibold text-slate-700 mb-1 flex items-center gap-1">
+                        <Clock className="w-3 h-3 text-sky-600" />
+                        Hora / Fecha Nac.
+                      </label>
+                      <input
+                        type="text"
+                        value={birthTime}
+                        onChange={(e) => setBirthTime(e.target.value)}
+                        placeholder="Ej. 15/10/2026"
+                        className="w-full px-3 py-2 bg-white border border-slate-300 rounded-xl text-xs text-slate-900 focus:outline-none focus:ring-2 focus:ring-sky-500"
+                      />
+                      <span className="text-[9px] text-slate-400 block mt-0.5">Formato MX: DD/MM/YYYY</span>
+                    </div>
+                    <div>
+                      <label className="block text-xs font-semibold text-slate-700 mb-1 flex items-center gap-1">
+                        <Footprints className="w-3 h-3 text-sky-600" />
+                        Pie (en cm)
+                      </label>
+                      <input
+                        type="text"
+                        value={footSize}
+                        onChange={(e) => setFootSize(e.target.value)}
+                        placeholder="Ej. 8 cm"
+                        className="w-full px-3 py-2 bg-white border border-slate-300 rounded-xl text-xs text-slate-900 focus:outline-none focus:ring-2 focus:ring-sky-500"
+                      />
+                    </div>
                   </div>
 
                   {/* Loop Option: Defaulted to True per user requirement */}
-                  <div className="p-3 bg-sky-50/70 border border-sky-200 rounded-xl">
+                  <div className="p-3 bg-sky-50/70 border border-sky-200 rounded-xl mt-1">
                     <label className="flex items-start gap-2.5 cursor-pointer">
                       <input
                         type="checkbox"
@@ -465,7 +578,6 @@ export const StaffPortalPage: React.FC<StaffPortalPageProps> = ({ onOpenTv }) =>
                         </span>
                         <span className="text-sky-700 text-[11px]">
                           Mantiene las fotos anteriores rotando en pantalla cada 30 segundos.
-                          Desmarca si deseas que esta foto sea la única visible.
                         </span>
                       </div>
                     </label>
@@ -574,7 +686,7 @@ export const StaffPortalPage: React.FC<StaffPortalPageProps> = ({ onOpenTv }) =>
                       <div className="flex-1 min-w-0 space-y-1">
                         <div className="flex items-center gap-2">
                           <h4 className="text-xs font-bold text-slate-900 truncate">
-                            {item.baby_identifier || 'Recién Nacido'}
+                            {item.baby_name || item.baby_identifier || 'Recién Nacido'}
                           </h4>
                           <span
                             className={`px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider ${
@@ -586,6 +698,42 @@ export const StaffPortalPage: React.FC<StaffPortalPageProps> = ({ onOpenTv }) =>
                             {item.is_active ? 'En Pantalla' : 'Inactiva'}
                           </span>
                         </div>
+
+                        {/* Newborn details */}
+                        {(item.weight || item.height || item.apgar || item.gender || item.birth_time || item.foot_size) && (
+                          <div className="flex flex-wrap gap-1 pt-0.5">
+                            {item.gender && (
+                              <span className="px-1.5 py-0.2 rounded bg-slate-200 text-slate-700 text-[10px] font-medium">
+                                {item.gender}
+                              </span>
+                            )}
+                            {item.weight && (
+                              <span className="px-1.5 py-0.2 rounded bg-sky-100 text-sky-800 text-[10px] font-medium">
+                                {item.weight}
+                              </span>
+                            )}
+                            {item.height && (
+                              <span className="px-1.5 py-0.2 rounded bg-sky-100 text-sky-800 text-[10px] font-medium">
+                                {item.height}
+                              </span>
+                            )}
+                            {item.apgar && (
+                              <span className="px-1.5 py-0.2 rounded bg-emerald-100 text-emerald-800 text-[10px] font-medium">
+                                Apgar: {item.apgar}
+                              </span>
+                            )}
+                            {item.birth_time && (
+                              <span className="px-1.5 py-0.2 rounded bg-slate-100 text-slate-700 text-[10px]">
+                                {item.birth_time}
+                              </span>
+                            )}
+                            {item.foot_size && (
+                              <span className="px-1.5 py-0.2 rounded bg-purple-100 text-purple-800 text-[10px]">
+                                Pie: {item.foot_size}
+                              </span>
+                            )}
+                          </div>
+                        )}
 
                         {item.room && (
                           <p className="text-[11px] text-slate-600">
@@ -637,11 +785,17 @@ export const StaffPortalPage: React.FC<StaffPortalPageProps> = ({ onOpenTv }) =>
           isOpen={isConfirmModalOpen}
           isLoading={isSubmitting}
           photoDataUrl={selectedPhoto.dataUrl}
-          babyIdentifier={babyIdentifier}
-          room={roomNumber || currentSpaceObj?.nombre_espacio}
+          babyName={babyName}
+          weight={weight}
+          height={height}
+          apgar={apgar}
+          gender={gender}
+          birthTime={birthTime}
+          footSize={footSize}
+          room={currentSpaceObj?.nombre_espacio}
           spacePath={effectiveSpacePath}
           keepExistingActive={keepExistingActive}
-          title={customMessage || 'Fotografía de Nacimiento'}
+          title={babyName ? `Nacimiento: ${babyName}` : 'Fotografía de Nacimiento'}
           onCancel={() => setIsConfirmModalOpen(false)}
           onConfirm={handleConfirmAndTransmit}
         />

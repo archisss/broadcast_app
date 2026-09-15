@@ -4,6 +4,7 @@ import fs from 'fs';
 import { createServer as createViteServer } from 'vite';
 import multer from 'multer';
 import { createClient } from '@supabase/supabase-js';
+import { initPostgres, getPostgresPool, getPostgresStatus } from './server/db.js';
 
 const app = express();
 const PORT = 3000;
@@ -136,6 +137,14 @@ interface DbAnnouncement {
   baby_identifier?: string;
   room?: string;
   birth_datetime?: string;
+  // New newborn fields
+  baby_name?: string;
+  weight?: string;
+  height?: string;
+  apgar?: string | number;
+  gender?: string;
+  birth_time?: string;
+  foot_size?: string;
   is_active: boolean;
   published_at: string;
   published_by_id: string;
@@ -364,6 +373,13 @@ let ANNOUNCEMENTS: DbAnnouncement[] = [
     photo_path: 'sample_newborn.svg',
     photo_url: '/api/photos/sample_newborn.svg',
     baby_identifier: 'RN-2026-089',
+    baby_name: 'Juan Pedro',
+    weight: '1.3 kg',
+    height: '70 cm',
+    apgar: 9,
+    gender: 'Masculino',
+    birth_time: '15/10/2026',
+    foot_size: '8 cm',
     room: 'Habitación 304 - Maternidad',
     birth_datetime: new Date(Date.now() - 45 * 60 * 1000).toISOString(),
     is_active: true,
@@ -860,6 +876,17 @@ app.delete('/api/spaces/:id', async (req: Request, res: Response) => {
   res.json({ success: true });
 });
 
+// Database connection status (PostgreSQL Coolify & Supabase)
+app.get('/api/database/status', (_req: Request, res: Response) => {
+  res.json({
+    postgres: getPostgresStatus(),
+    supabase: {
+      configured: Boolean(serverSupabase),
+      url: serverSupabaseUrl ? serverSupabaseUrl.replace(/^https?:\/\//, '') : null,
+    },
+  });
+});
+
 // Helper to find doctor by id or username safely
 function findDoctor(idOrUsername: string) {
   const query = String(idOrUsername || '').trim().toLowerCase();
@@ -872,6 +899,41 @@ function findDoctor(idOrUsername: string) {
 
 // 2c. Doctors and Staff Management Endpoints (Superadmin & Admin)
 app.get('/api/doctors', async (_req: Request, res: Response) => {
+  // Sync from PostgreSQL (Coolify) if available
+  const pgPool = getPostgresPool();
+  if (pgPool) {
+    try {
+      const { rows } = await pgPool.query('SELECT * FROM public.doctors ORDER BY created_at ASC');
+      if (rows && rows.length > 0) {
+        for (const row of rows) {
+          const rowId = String(row.id);
+          const rowUser = String(row.username || '').toLowerCase();
+          const existingIdx = DOCTORS.findIndex(
+            (d) => String(d.id) === rowId || d.username.toLowerCase() === rowUser
+          );
+          const item: DbDoctor = {
+            id: rowId,
+            name: row.name || 'Personal Médico',
+            username: rowUser,
+            password: row.password || (existingIdx !== -1 ? DOCTORS[existingIdx].password : 'admin123'),
+            role: row.role || 'doctor',
+            department: row.department || 'Obstetricia y Maternidad',
+            assigned_space_path: row.assigned_space_path || '',
+            is_active: row.is_active !== undefined ? Boolean(row.is_active) : true,
+            created_at: row.created_at || new Date().toISOString(),
+          };
+          if (existingIdx !== -1) {
+            DOCTORS[existingIdx] = { ...DOCTORS[existingIdx], ...item };
+          } else {
+            DOCTORS.push(item);
+          }
+        }
+      }
+    } catch (e: any) {
+      console.warn('Postgres doctors query notice:', e.message);
+    }
+  }
+
   if (serverSupabase) {
     try {
       const { data, error } = await serverSupabase
@@ -1263,6 +1325,13 @@ app.post('/api/announcements', async (req: Request, res: Response) => {
     baby_identifier,
     room,
     birth_datetime,
+    baby_name = req.body.babyName,
+    weight,
+    height,
+    apgar,
+    gender,
+    birth_time = req.body.birthTime,
+    foot_size = req.body.footSize,
     channel = 'waiting-room',
     space_path = '/tv',
     space_id,
@@ -1308,6 +1377,13 @@ app.post('/api/announcements', async (req: Request, res: Response) => {
     baby_identifier: baby_identifier?.trim() || undefined,
     room: room?.trim() || undefined,
     birth_datetime: birth_datetime || undefined,
+    baby_name: baby_name?.trim() || undefined,
+    weight: weight?.trim() || undefined,
+    height: height?.trim() || undefined,
+    apgar: apgar !== undefined && apgar !== null && String(apgar).trim() !== '' ? apgar : undefined,
+    gender: gender?.trim() || undefined,
+    birth_time: birth_time?.trim() || undefined,
+    foot_size: foot_size?.trim() || undefined,
     is_active: true,
     published_at: now,
     published_by_id: user_id,
@@ -1323,6 +1399,7 @@ app.post('/api/announcements', async (req: Request, res: Response) => {
   ANNOUNCEMENTS.unshift(announcement);
 
   // Add audit log
+  const babyLabel = baby_name ? `(${baby_name})` : baby_identifier ? `(${baby_identifier})` : '';
   AUDIT_LOGS.unshift({
     id: `aud_${Date.now()}`,
     action: 'photo_published',
@@ -1330,7 +1407,7 @@ app.post('/api/announcements', async (req: Request, res: Response) => {
     user_id,
     user_name,
     user_role,
-    details: `Imagen/anuncio publicado en ${formattedSpacePath} (${room || 'General'}). ${keepExistingActive ? '[En bucle 30s]' : '[Pantalla fija]'}`,
+    details: `Imagen/anuncio publicado en ${formattedSpacePath} ${babyLabel}. ${keepExistingActive ? '[En bucle 30s]' : '[Pantalla fija]'}`,
     timestamp: now,
   });
 
@@ -1690,6 +1767,7 @@ app.post('/api/hospital-settings', (req: Request, res: Response) => {
     ...(incoming.logoUrl !== undefined ? { logoUrl: String(incoming.logoUrl).trim() } : {}),
   };
   saveHospitalSettings(updated);
+  broadcastRealtime('hospital_settings:updated', { settings: updated }, 'all');
   res.json({ success: true, settings: updated });
 });
 
@@ -1699,6 +1777,7 @@ app.post('/api/hospital-settings/logo', upload.single('logo'), (req: Request, re
     const current = loadHospitalSettings();
     current.logoUrl = logoUrl;
     saveHospitalSettings(current);
+    broadcastRealtime('hospital_settings:updated', { settings: current }, 'all');
     res.json({ success: true, logoUrl });
     return;
   }
@@ -1709,6 +1788,11 @@ app.post('/api/hospital-settings/logo', upload.single('logo'), (req: Request, re
 // Vite Middleware & Static Serving
 // ==========================================
 async function startServer() {
+  // Attempt PostgreSQL initialization if configured
+  initPostgres().catch((err) => {
+    console.warn('[PostgreSQL Coolify] Inicialización diferida / no configurada aún:', err?.message || err);
+  });
+
   if (process.env.NODE_ENV !== 'production') {
     const vite = await createViteServer({
       server: { middlewareMode: true },
@@ -1725,6 +1809,10 @@ async function startServer() {
 
   app.listen(PORT, '0.0.0.0', () => {
     console.log(`[Hospital Bienvenida Recién Nacidos] Server listening on http://0.0.0.0:${PORT}`);
+    const pgStatus = getPostgresStatus();
+    if (pgStatus.configured) {
+      console.log(`[PostgreSQL Coolify] Configuración detectada. Estado conectado: ${pgStatus.connected}`);
+    }
     if (serverSupabase) {
       console.log(`[Supabase] Conectado a: ${serverSupabaseUrl}`);
       console.log(`[Supabase Service Role] ${process.env.SUPABASE_SERVICE_ROLE_KEY ? 'Presente' : 'No configurado (usando ANON key)'}`);

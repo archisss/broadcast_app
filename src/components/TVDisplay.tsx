@@ -3,6 +3,7 @@ import { motion, AnimatePresence } from 'motion/react';
 import { Maximize2, Minimize2, Sparkles, Heart, RefreshCw } from 'lucide-react';
 import { TvAnnouncement, ConnectionState } from '../types';
 import { HospitalLogo } from './HospitalLogo';
+import { useHospital } from '../context/HospitalContext';
 
 interface TVDisplayProps {
   announcement: TvAnnouncement | null;
@@ -19,6 +20,10 @@ export const TVDisplay: React.FC<TVDisplayProps> = ({
   spacePath = '/tv',
   connectionState,
 }) => {
+  const { settings } = useHospital();
+  const hospitalName = settings.hospitalName || 'HOSPITAL SAN LUCAS';
+  const hospitalSubname = settings.hospitalSubname || 'Broadcast Hospitalario';
+
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [showControlsHint, setShowControlsHint] = useState(false);
   const [currentTime, setCurrentTime] = useState<string>('');
@@ -211,7 +216,7 @@ export const TVDisplay: React.FC<TVDisplayProps> = ({
                 <div className="absolute top-5 left-5 pointer-events-none opacity-90 flex items-center gap-2 bg-slate-900/70 backdrop-blur-md px-3.5 py-1.5 rounded-full border border-white/10 text-xs text-slate-200">
                   <Sparkles className="w-3.5 h-3.5 text-amber-300" />
                   <span>
-                    {currentItem.title || (resolvedSpaceTitle ? resolvedSpaceTitle : 'Hospital San Lucas')}
+                    {currentItem.title || (resolvedSpaceTitle ? resolvedSpaceTitle : hospitalName)}
                   </span>
                 </div>
 
@@ -227,26 +232,63 @@ export const TVDisplay: React.FC<TVDisplayProps> = ({
                 )}
               </div>
 
-              {/* Institutional Caption */}
-              <div className="mt-4 flex flex-col items-center text-center space-y-1">
-                <div className="flex items-center gap-2 text-sky-300 text-lg md:text-xl font-medium tracking-wide">
+              {/* Institutional Caption & Newborn Information */}
+              <div className="mt-3.5 flex flex-col items-center text-center space-y-2 max-w-4xl px-4">
+                <div className="flex items-center gap-2 text-sky-300 text-base md:text-xl font-medium tracking-wide">
                   <Heart className="w-4 h-4 text-rose-400 fill-rose-400/40" />
-                  <span>{currentItem.title || 'Hospital San Lucas • Broadcast Hospitalario'}</span>
+                  <span>{currentItem.title || `${hospitalName} • ${hospitalSubname}`}</span>
                   <Heart className="w-4 h-4 text-rose-400 fill-rose-400/40" />
                 </div>
 
-                {/* Optional discreet reference */}
-                {(currentItem.baby_identifier || currentItem.room || currentItem.published_by_name) && (
-                  <p className="text-xs md:text-sm text-slate-400 font-light tracking-wide">
-                    {currentItem.baby_identifier && (
-                      <span className="font-mono text-slate-300">{currentItem.baby_identifier}</span>
+                {/* Newborn Details Badge Row */}
+                {(currentItem.baby_name || currentItem.baby_identifier || currentItem.weight || currentItem.height || currentItem.apgar || currentItem.gender || currentItem.birth_time || currentItem.foot_size || currentItem.room) && (
+                  <div className="flex flex-wrap items-center justify-center gap-2 pt-0.5">
+                    {(currentItem.baby_name || currentItem.baby_identifier) && (
+                      <span className="text-sm md:text-base font-bold text-white bg-slate-900/90 px-3.5 py-1 rounded-xl border border-slate-700 shadow-md flex items-center gap-1.5">
+                        <span role="img" aria-label="baby">👶</span>
+                        <span>{currentItem.baby_name || currentItem.baby_identifier}</span>
+                      </span>
                     )}
-                    {currentItem.baby_identifier && currentItem.room && ' • '}
-                    {currentItem.room && <span>{currentItem.room}</span>}
-                    {currentItem.published_by_name && (
-                      <span className="text-slate-500"> • {currentItem.published_by_name}</span>
+                    {currentItem.gender && (
+                      <span className={`text-xs md:text-sm font-semibold px-3 py-1 rounded-xl border ${
+                        currentItem.gender.toLowerCase().includes('fem')
+                          ? 'bg-rose-950/70 text-rose-300 border-rose-700/60'
+                          : 'bg-sky-950/70 text-sky-300 border-sky-700/60'
+                      }`}>
+                        {currentItem.gender}
+                      </span>
                     )}
-                  </p>
+                    {currentItem.weight && (
+                      <span className="text-xs md:text-sm text-slate-200 bg-slate-900/80 px-3 py-1 rounded-xl border border-white/10">
+                        Peso: <strong className="text-sky-300">{currentItem.weight}</strong>
+                      </span>
+                    )}
+                    {currentItem.height && (
+                      <span className="text-xs md:text-sm text-slate-200 bg-slate-900/80 px-3 py-1 rounded-xl border border-white/10">
+                        Talla: <strong className="text-sky-300">{currentItem.height}</strong>
+                      </span>
+                    )}
+                    {currentItem.apgar && (
+                      <span className="text-xs md:text-sm text-emerald-300 bg-emerald-950/70 px-3 py-1 rounded-xl border border-emerald-700/60">
+                        Apgar: <strong className="text-emerald-200">{currentItem.apgar}</strong>
+                      </span>
+                    )}
+                    {currentItem.birth_time && (
+                      <span className="text-xs md:text-sm text-slate-200 bg-slate-900/80 px-3 py-1 rounded-xl border border-white/10">
+                        Nacimiento: <strong className="text-white">{currentItem.birth_time}</strong>
+                      </span>
+                    )}
+                    {currentItem.foot_size && (
+                      <span className="text-xs md:text-sm text-purple-300 bg-purple-950/70 px-3 py-1 rounded-xl border border-purple-700/60">
+                        Pie: <strong className="text-purple-200">{currentItem.foot_size}</strong>
+                      </span>
+                    )}
+                    {currentItem.room && (
+                      <span className="text-xs md:text-sm text-slate-400 bg-slate-900/60 px-2.5 py-1 rounded-lg border border-slate-800">
+                        Habitación: {currentItem.room}
+                      </span>
+                    )}
+                  </div>
                 )}
               </div>
             </motion.div>
@@ -260,30 +302,43 @@ export const TVDisplay: React.FC<TVDisplayProps> = ({
               transition={{ duration: 0.9, ease: 'easeOut' }}
               className="flex flex-col items-center justify-center text-center max-w-2xl px-6 py-12"
             >
-              {/* Soft Pulsing Hospital Cross */}
+              {/* Soft Pulsing Hospital Logo or Cross */}
               <div className="relative mb-8">
                 <div className="absolute inset-0 bg-sky-500/20 blur-2xl rounded-full animate-pulse" />
-                <div className="relative w-24 h-24 md:w-28 md:h-28 rounded-3xl bg-slate-800/80 border border-slate-700/60 flex items-center justify-center text-sky-400 shadow-2xl backdrop-blur-xl">
-                  <svg
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="1.75"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    className="w-14 h-14"
-                  >
-                    <path d="M12 3v18" />
-                    <path d="M3 12h18" />
-                    <circle cx="12" cy="12" r="7" strokeOpacity="0.4" strokeWidth="1.5" />
-                    <path d="M9 13.5c.8 1.2 2 1.5 3 1.5s2.2-.3 3-1.5" strokeWidth="1.8" />
-                  </svg>
-                </div>
+                {settings.logoUrl ? (
+                  <div className="relative w-28 h-28 md:w-36 md:h-36 rounded-3xl bg-slate-900/90 border border-slate-700/60 p-3 flex items-center justify-center shadow-2xl backdrop-blur-xl overflow-hidden">
+                    <img
+                      src={settings.logoUrl}
+                      alt={hospitalName}
+                      className="w-full h-full object-contain"
+                    />
+                  </div>
+                ) : (
+                  <div className="relative w-24 h-24 md:w-28 md:h-28 rounded-3xl bg-slate-800/80 border border-slate-700/60 flex items-center justify-center text-sky-400 shadow-2xl backdrop-blur-xl">
+                    <svg
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="1.75"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      className="w-14 h-14"
+                    >
+                      <path d="M12 3v18" />
+                      <path d="M3 12h18" />
+                      <circle cx="12" cy="12" r="7" strokeOpacity="0.4" strokeWidth="1.5" />
+                      <path d="M9 13.5c.8 1.2 2 1.5 3 1.5s2.2-.3 3-1.5" strokeWidth="1.8" />
+                    </svg>
+                  </div>
+                )}
               </div>
 
-              <h1 className="text-3xl md:text-5xl font-bold tracking-tight text-white mb-4">
-                Hospital San Lucas
+              <h1 className="text-3xl md:text-5xl font-bold tracking-tight text-white mb-2">
+                {hospitalName}
               </h1>
+              <p className="text-sm md:text-base text-sky-400/90 font-medium mb-4 tracking-wider uppercase">
+                {hospitalSubname}
+              </p>
 
               <p className="text-base md:text-xl text-slate-300 font-light leading-relaxed max-w-xl">
                 En este momento no hay una fotografía o comunicado activo para mostrar.
@@ -307,7 +362,7 @@ export const TVDisplay: React.FC<TVDisplayProps> = ({
           </span>
         </div>
         <span className="tracking-wider uppercase text-[11px] text-slate-400">
-          Hospital San Lucas
+          {hospitalName}
         </span>
       </footer>
     </div>

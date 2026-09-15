@@ -73,8 +73,9 @@ export const DoctorsManagementPage: React.FC = () => {
     loadDoctors();
   }, []);
 
-  const togglePasswordVisibility = (id: string) => {
-    setVisiblePasswords((prev) => ({ ...prev, [id]: !prev[id] }));
+  const togglePasswordVisibility = (id: string | number) => {
+    const key = String(id);
+    setVisiblePasswords((prev) => ({ ...prev, [key]: !prev[key] }));
   };
 
   const handleOpenPasswordModal = (doc: Doctor) => {
@@ -134,7 +135,12 @@ export const DoctorsManagementPage: React.FC = () => {
       );
 
       // Make password visible for this doctor so the user can verify it
-      setVisiblePasswords((prev) => ({ ...prev, [passwordModalDoctor.id]: true }));
+      const docKey = String(passwordModalDoctor.id || passwordModalDoctor.username);
+      setVisiblePasswords((prev) => ({
+        ...prev,
+        [passwordModalDoctor.id]: true,
+        [docKey]: true,
+      }));
 
       setSuccessMsg(`Contraseña de "${passwordModalDoctor.name}" actualizada con éxito.`);
       setTimeout(() => setSuccessMsg(null), 4000);
@@ -423,7 +429,12 @@ CREATE INDEX IF NOT EXISTS idx_doctors_assigned_space ON public.doctors(assigned
               </thead>
               <tbody className="divide-y divide-slate-100 text-slate-700">
                 {doctors.map((doc) => {
-                  const isPassVisible = visiblePasswords[doc.id];
+                  const docKey = String(doc.id || doc.username);
+                  const isPassVisible = Boolean(
+                    visiblePasswords[docKey] ||
+                    visiblePasswords[doc.id] ||
+                    visiblePasswords[doc.username]
+                  );
                   const isCurrentLoggedUser = user?.username === doc.username;
 
                   const roleBadgeConfig = {
@@ -460,30 +471,39 @@ CREATE INDEX IF NOT EXISTS idx_doctors_assigned_space ON public.doctors(assigned
 
                       <td className="py-4 px-6">
                         <div className="flex items-center gap-2">
-                          <span className="font-mono text-xs text-slate-700 select-all font-medium">
-                            {isPassVisible ? (doc.password || 'admin123') : '••••••••'}
-                          </span>
-                          <button
-                            type="button"
-                            onClick={() => togglePasswordVisibility(doc.id)}
-                            className="text-slate-400 hover:text-slate-700 hover:bg-slate-100 p-1 rounded transition-colors cursor-pointer"
-                            title={isPassVisible ? 'Ocultar contraseña' : 'Ver contraseña'}
-                          >
-                            {isPassVisible ? (
-                              <EyeOff className="w-3.5 h-3.5 text-sky-700" />
-                            ) : (
-                              <Eye className="w-3.5 h-3.5" />
-                            )}
-                          </button>
+                          <div className="flex items-center gap-1.5 bg-slate-50 border border-slate-200/80 rounded-lg px-2.5 py-1">
+                            <span className="font-mono text-xs text-slate-800 font-semibold select-all tracking-wider min-w-[70px]">
+                              {isPassVisible ? (doc.password || 'admin123') : '••••••••'}
+                            </span>
+                            <button
+                              id={`btn-toggle-eye-${doc.id}`}
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                togglePasswordVisibility(doc.id);
+                                togglePasswordVisibility(docKey);
+                              }}
+                              className="text-slate-400 hover:text-sky-700 hover:bg-white p-1 rounded-md transition-colors cursor-pointer"
+                              title={isPassVisible ? 'Ocultar contraseña' : 'Ver contraseña'}
+                            >
+                              {isPassVisible ? (
+                                <EyeOff className="w-3.5 h-3.5 text-sky-700" />
+                              ) : (
+                                <Eye className="w-3.5 h-3.5 text-slate-600 hover:text-slate-900" />
+                              )}
+                            </button>
+                          </div>
 
                           {(isSuperadmin || doc.role !== 'superadmin') && (
                             <button
+                              id={`btn-change-pass-${doc.id}`}
                               type="button"
                               onClick={() => handleOpenPasswordModal(doc)}
-                              className="text-sky-600 hover:text-sky-800 hover:bg-sky-50 p-1 rounded transition-colors cursor-pointer"
-                              title="Actualizar contraseña de este usuario"
+                              className="text-sky-700 hover:text-sky-900 hover:bg-sky-100/80 px-2 py-1 rounded-lg text-xs font-semibold inline-flex items-center gap-1 border border-sky-200 transition-colors cursor-pointer shadow-xs"
+                              title="Actualizar o cambiar contraseña"
                             >
-                              <KeyRound className="w-3.5 h-3.5" />
+                              <KeyRound className="w-3 h-3 text-sky-700" />
+                              <span>Cambiar</span>
                             </button>
                           )}
                         </div>
